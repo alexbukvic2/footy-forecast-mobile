@@ -134,12 +134,12 @@ function SuccessView({ league }: { league: League }) {
 
       <View className="px-5 pb-10">
         <Pressable
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => router.replace('/(tabs)/leagues')}
           accessibilityRole="button"
           className="w-full h-14 rounded-pill bg-brand-500 items-center justify-center"
           style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 18, elevation: 6 }}
         >
-          <Text className="font-semibold text-[15px] text-ink-invert">{"Go to today's matches"}</Text>
+          <Text className="font-semibold text-[15px] text-ink-invert">{"Go to my leagues"}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
