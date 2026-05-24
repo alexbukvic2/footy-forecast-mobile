@@ -19,7 +19,7 @@ export class ApiError extends Error {
   }
 }
 
-async function getAccessToken(): Promise<string | null> {
+async function getIdToken(): Promise<string | null> {
   const session = await getStoredSession();
   if (!session) return null;
 
@@ -27,7 +27,7 @@ async function getAccessToken(): Promise<string | null> {
   if (session.expiresAt - Date.now() < 60_000) {
     try {
       const refreshed = await refreshSession(session.refreshToken);
-      return refreshed.accessToken;
+      return refreshed.idToken;
     } catch {
       await clearTokens();
       onSignOutRequired?.();
@@ -35,14 +35,14 @@ async function getAccessToken(): Promise<string | null> {
     }
   }
 
-  return session.accessToken;
+  return session.idToken;
 }
 
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const token = await getAccessToken();
+  const token = await getIdToken();
 
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
@@ -57,7 +57,7 @@ export async function apiFetch<T>(
       let newToken: string;
       try {
         const refreshed = await refreshSession(session.refreshToken);
-        newToken = refreshed.accessToken;
+        newToken = refreshed.idToken;
       } catch {
         await clearTokens();
         onSignOutRequired?.();
