@@ -65,7 +65,7 @@ export default function ChooserScreen() {
       {/* Body */}
       <View className="flex-1 px-6 pt-12">
         <Text className="font-mono text-eyebrow uppercase text-brand-500 tracking-widest">
-          ROSTER · EMPTY
+          YOU ARE NOT IN THE LEAGUE YET
         </Text>
         <Text className="mt-3 font-display font-bold text-ink leading-tight" style={{ fontSize: 42, lineHeight: 42 }}>
           {"You're in.\n"}
