@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { View, ScrollView, Modal, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, ScrollView, Modal, Pressable, Share } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronUp, ChevronDown, Trash2 } from 'lucide-react-native';
+import { ChevronUp, ChevronDown, Trash2, Share2, LogOut } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
-import { useLeagues, useLeagueDetails, useDeleteLeague } from '@/hooks/useLeagues';
+import { useLeagues, useDeleteLeague, useLeaveLeague } from '@/hooks/useLeagues';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { ApiError } from '@/api/client';
 
@@ -35,22 +35,6 @@ function WarmTopGlow() {
       style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 420 }}
       pointerEvents="none"
     />
-  );
-}
-
-function Wordmark() {
-  return (
-    <View className="flex-row items-center gap-2.5">
-      <View className="w-7 h-7 rounded-card bg-brand-500 items-center justify-center">
-        <Text className="font-display font-bold text-ink-invert text-[11px]">FF</Text>
-      </View>
-      <View>
-        <Text className="font-display font-bold text-sm tracking-tight">Footy Forecast</Text>
-        <Text className="font-mono uppercase text-ink-dim tracking-widest text-[9px]">
-          {"World Cup '26 · beta"}
-        </Text>
-      </View>
-    </View>
   );
 }
 
@@ -97,13 +81,43 @@ function TrendChip({ change }: { change: number }) {
   );
 }
 
+function IconButton({
+  label,
+  onPress,
+  children,
+}: {
+  label: string;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={8}
+      className="w-9 h-9 rounded-pill border border-line items-center justify-center"
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 function LeagueRow({
   league,
   onDeletePress,
+  onLeavePress,
 }: {
   league: LeagueMembership;
   onDeletePress: (l: LeagueMembership) => void;
+  onLeavePress: (l: LeagueMembership) => void;
 }) {
+  function handleShare() {
+    void Share.share({ message: league.code });
+  }
+
+  const mutedIcon = 'rgba(245,232,210,0.55)';
+
   return (
     <View className="rounded-card border border-line bg-surface/40 px-4 py-3.5 flex-row items-center gap-3">
       <View className="flex-1">
@@ -126,67 +140,80 @@ function LeagueRow({
           )}
           <Text className="text-ink-dim text-[11px]">·</Text>
           <TrendChip change={league.change} />
+          <Text className="text-ink-dim text-[11px]">·</Text>
+          <Text className="font-mono text-ink-dim text-[11px] tracking-[0.08em]">
+            {league.code}
+          </Text>
         </View>
       </View>
 
-      {league.isAdmin && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Delete ${league.name}`}
-          onPress={() => onDeletePress(league)}
-          hitSlop={8}
-          className="w-9 h-9 rounded-pill border border-line items-center justify-center"
-        >
-          <Trash2 size={15} color="rgba(245,232,210,0.55)" />
-        </Pressable>
-      )}
+      <View className="flex-row gap-2">
+        <IconButton label={`Share code for ${league.name}`} onPress={handleShare}>
+          <Share2 size={15} color={mutedIcon} strokeWidth={1.8} />
+        </IconButton>
+        {league.isAdmin ? (
+          <IconButton label={`Delete ${league.name}`} onPress={() => onDeletePress(league)}>
+            <Trash2 size={15} color={mutedIcon} strokeWidth={1.8} />
+          </IconButton>
+        ) : (
+          <IconButton label={`Leave ${league.name}`} onPress={() => onLeavePress(league)}>
+            <LogOut size={15} color={mutedIcon} strokeWidth={1.8} />
+          </IconButton>
+        )}
+      </View>
     </View>
   );
 }
 
-// ─── Delete confirm sheet ─────────────────────────────────────────────────────
+// ─── Confirm sheets ───────────────────────────────────────────────────────────
 
-function DeleteConfirmSheet({
-  league,
+function ConfirmSheet({
+  visible,
+  eyebrow,
+  title,
+  body,
+  confirmLabel,
   busy,
+  error,
   onConfirm,
   onCancel,
-  error,
 }: {
-  league: LeagueMembership | null;
+  visible: boolean;
+  eyebrow: string;
+  title: string;
+  body: string;
+  confirmLabel: string;
   busy: boolean;
+  error: string | null;
   onConfirm: () => void;
   onCancel: () => void;
-  error: string | null;
 }) {
   return (
     <Modal
       transparent
-      visible={league !== null}
+      visible={visible}
       animationType="fade"
       onRequestClose={onCancel}
       statusBarTranslucent
     >
       <Pressable
         onPress={onCancel}
-        className="flex-1 justify-end"
+        className="flex-1 items-center justify-center px-4"
         style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}
       >
-        <Pressable onPress={() => {}} className="mx-3 mb-3 rounded-card bg-surface-raised border border-line-strong overflow-hidden">
+        <Pressable onPress={() => {}} className="w-full rounded-card bg-surface-raised border border-line-strong overflow-hidden">
           <View className="px-5 pt-5 pb-4">
             <View className="flex-row items-center gap-2">
               <View className="w-1.5 h-1.5 rounded-full bg-danger" />
               <Text variant="eyebrow" tone="danger" className="tracking-widest">
-                DELETE LEAGUE · CONFIRM
+                {eyebrow}
               </Text>
             </View>
             <Text variant="display" className="mt-2 leading-tight tracking-tight" style={{ fontSize: 24 }}>
-              {league ? `Disband ${league.name}?` : ''}
+              {title}
             </Text>
             <Text variant="body" tone="muted" className="mt-2 text-[13.5px] leading-relaxed">
-              {league
-                ? `This wipes the league for all ${league.members} members and erases every prediction. Can't be undone.`
-                : ''}
+              {body}
             </Text>
             {error !== null && (
               <Text className="mt-3 text-[12.5px] text-danger">{error}</Text>
@@ -194,7 +221,7 @@ function DeleteConfirmSheet({
           </View>
           <View className="px-3 pb-3 pt-1 gap-2">
             <Button
-              label={busy ? 'Deleting…' : 'Delete league'}
+              label={busy ? `${confirmLabel.split(' ')[0]}…` : confirmLabel}
               variant="danger"
               size="md"
               fullWidth
@@ -229,67 +256,69 @@ function EmptyState() {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function LeaguesScreen() {
-  const [pending, setPending] = useState<LeagueMembership | null>(null);
+  const insets = useSafeAreaInsets();
+  const tabBarClearance = Math.max(insets.bottom, 12) + 64 + 12;
+
+  const [pendingDelete, setPendingDelete] = useState<LeagueMembership | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pendingLeave, setPendingLeave] = useState<LeagueMembership | null>(null);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const { data: leagues, isPending: leaguesPending } = useLeagues();
   const { data: currentUser, isPending: userPending } = useCurrentUser();
-  const leagueIds = useMemo(() => leagues?.map((l) => l.id) ?? [], [leagues]);
-  const detailQueries = useLeagueDetails(leagueIds);
-
   const { mutate: deleteLeague, isPending: deleting } = useDeleteLeague();
+  const { mutate: leaveLeague, isPending: leaving } = useLeaveLeague();
 
   const isLoading = leaguesPending || userPending;
 
   const memberships: LeagueMembership[] = useMemo(() => {
     if (!leagues || !currentUser) return [];
-    return leagues.map((league, i) => {
-      const detail = detailQueries[i]?.data;
-      return {
-        id: league.id,
-        name: league.name,
-        code: league.code,
-        members: detail?.members.length ?? 0,
-        position: 0, // placeholder — update when leaderboard EP is available
-        change: 0,   // placeholder — update when leaderboard EP is available
-        isAdmin: league.owner_id === currentUser.id,
-      };
-    });
-  }, [leagues, currentUser, detailQueries]);
-
-  function handleDeletePress(league: LeagueMembership) {
-    setDeleteError(null);
-    setPending(league);
-  }
+    return leagues.map((league) => ({
+      id: league.id,
+      name: league.name,
+      code: league.code,
+      members: league.member_count,
+      position: 0, // placeholder — update when leaderboard EP is available
+      change: 0,   // placeholder — update when leaderboard EP is available
+      isAdmin: league.owner_id === currentUser.id,
+    }));
+  }, [leagues, currentUser]);
 
   function handleConfirmDelete() {
-    if (!pending) return;
-    deleteLeague(pending.id, {
-      onSuccess: () => setPending(null),
+    if (!pendingDelete) return;
+    deleteLeague(pendingDelete.id, {
+      onSuccess: () => setPendingDelete(null),
       onError: (err) => {
-        const message =
+        setDeleteError(
           err instanceof ApiError && err.status === 403
             ? 'Only the league owner can delete it.'
-            : 'Failed to delete league. Please try again.';
-        setDeleteError(message);
+            : 'Failed to delete league. Please try again.',
+        );
       },
     });
   }
 
+  function handleConfirmLeave() {
+    if (!pendingLeave || !currentUser) return;
+    leaveLeague(
+      { leagueId: pendingLeave.id, userId: currentUser.id },
+      {
+        onSuccess: () => setPendingLeave(null),
+        onError: (err) => {
+          setLeaveError(
+            err instanceof ApiError && err.status === 403
+              ? "You can't leave a league you own. Delete it instead."
+              : 'Failed to leave league. Please try again.',
+          );
+        },
+      },
+    );
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
       <WarmTopGlow />
-
-      {/* Header */}
-      <View className="px-5 pt-3 flex-row items-center justify-between">
-        <Wordmark />
-        {!isLoading && (
-          <Text className="font-mono uppercase text-ink-dim text-[9px] tracking-widest">
-            {`${memberships.length} active`}
-          </Text>
-        )}
-      </View>
 
       {/* Eyebrow */}
       <View className="px-6 pt-9">
@@ -306,13 +335,18 @@ export default function LeaguesScreen() {
           showsVerticalScrollIndicator={false}
         >
           {memberships.map((l) => (
-            <LeagueRow key={l.id} league={l} onDeletePress={handleDeletePress} />
+            <LeagueRow
+              key={l.id}
+              league={l}
+              onDeletePress={(league) => { setDeleteError(null); setPendingDelete(league); }}
+              onLeavePress={(league) => { setLeaveError(null); setPendingLeave(league); }}
+            />
           ))}
         </ScrollView>
       )}
 
       {/* CTAs */}
-      <View className="px-5 pb-6 gap-3">
+      <View className="px-5 gap-3" style={{ paddingBottom: tabBarClearance }}>
         <Button
           label="Create new league"
           variant="primary"
@@ -329,12 +363,28 @@ export default function LeaguesScreen() {
         />
       </View>
 
-      <DeleteConfirmSheet
-        league={pending}
+      <ConfirmSheet
+        visible={pendingDelete !== null}
+        eyebrow="DELETE LEAGUE · CONFIRM"
+        title={pendingDelete ? `Disband ${pendingDelete.name}?` : ''}
+        body={pendingDelete ? `This wipes the league for all ${pendingDelete.members} members. Can't be undone.` : ''}
+        confirmLabel="Delete league"
         busy={deleting}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => { setPending(null); setDeleteError(null); }}
         error={deleteError}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => { setPendingDelete(null); setDeleteError(null); }}
+      />
+
+      <ConfirmSheet
+        visible={pendingLeave !== null}
+        eyebrow="LEAVE LEAGUE · CONFIRM"
+        title={pendingLeave ? `Leave ${pendingLeave.name}?` : ''}
+        body="Your predictions stay, but you'll be off the leaderboard. Rejoin anytime with the code."
+        confirmLabel="Leave league"
+        busy={leaving}
+        error={leaveError}
+        onConfirm={handleConfirmLeave}
+        onCancel={() => { setPendingLeave(null); setLeaveError(null); }}
       />
     </SafeAreaView>
   );

@@ -40,15 +40,6 @@ function WarmTopGlow() {
 function Wordmark() {
   return (
     <View className="flex-row items-center gap-2.5">
-      <View className="w-7 h-7 rounded-card bg-brand-500 items-center justify-center">
-        <Text className="font-display font-bold text-ink-invert text-[11px]">FF</Text>
-      </View>
-      <View>
-        <Text className="font-display font-bold text-sm tracking-tight">Footy Forecast</Text>
-        <Text className="font-mono uppercase text-ink-dim tracking-widest text-[9px]">
-          {"World Cup '26 · beta"}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -201,7 +192,7 @@ function SuccessView({ league }: { league: League }) {
         </Text>
 
         <Text className="mt-3 text-[14px] leading-relaxed text-ink-muted max-w-[300px]">
-          {"You're the commissioner. Share the code so your friends can join."}
+          {"You're the administrator. Share the code so your friends can join."}
         </Text>
 
         {/* Code card */}
@@ -294,7 +285,7 @@ export default function CreateScreen() {
         {/* Body */}
         <ScrollView className="flex-1" contentContainerClassName="px-6 pt-9 pb-6" keyboardShouldPersistTaps="handled">
           <Text className="font-mono text-eyebrow uppercase text-brand-500 tracking-widest">
-            NEW LEAGUE · 01 / 01
+            NEW LEAGUE
           </Text>
           <Text className="mt-3 font-display font-bold text-ink leading-tight" style={{ fontSize: 36 }}>
             {"Give it a\nname."}

@@ -1,11 +1,11 @@
-import { useQuery, useQueries, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
 import type { components } from '@/types/api';
-import { listLeagues, createLeague, joinLeague, getLeague, deleteLeague } from '@/api/leagues';
+import { listLeagues, createLeague, joinLeague, getLeague, deleteLeague, leaveLeague } from '@/api/leagues';
 
-type League = components['schemas']['League'];
+type LeagueListItem = components['schemas']['LeagueListItem'];
 type LeagueDetail = components['schemas']['LeagueDetail'];
 
-export function useLeagues(options?: Pick<UseQueryOptions<League[]>, 'enabled'>) {
+export function useLeagues(options?: Pick<UseQueryOptions<LeagueListItem[]>, 'enabled'>) {
   return useQuery({
     queryKey: ['leagues'],
     queryFn: listLeagues,
@@ -13,23 +13,12 @@ export function useLeagues(options?: Pick<UseQueryOptions<League[]>, 'enabled'>)
   });
 }
 
-export function useLeagueDetails(ids: string[]) {
-  return useQueries({
-    queries: ids.map((id) => ({
-      queryKey: ['leagues', id] as const,
-      queryFn: () => getLeague(id),
-      enabled: ids.length > 0,
-    })),
-  });
-}
-
 export function useCreateLeague() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createLeague,
-    onSuccess: (league) => {
-      const prev = qc.getQueryData<League[]>(['leagues']) ?? [];
-      qc.setQueryData<League[]>(['leagues'], [...prev, league]);
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['leagues'] });
     },
   });
 }
@@ -38,9 +27,8 @@ export function useJoinLeague() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (code: string) => joinLeague(code),
-    onSuccess: (league) => {
-      const prev = qc.getQueryData<League[]>(['leagues']) ?? [];
-      qc.setQueryData<League[]>(['leagues'], [...prev, league]);
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['leagues'] });
     },
   });
 }
@@ -50,7 +38,7 @@ export function useDeleteLeague() {
   return useMutation({
     mutationFn: deleteLeague,
     onSuccess: (_data, id) => {
-      qc.setQueryData<League[]>(
+      qc.setQueryData<LeagueListItem[]>(
         ['leagues'],
         (prev) => prev?.filter((l) => l.id !== id) ?? [],
       );
@@ -59,4 +47,26 @@ export function useDeleteLeague() {
   });
 }
 
-export type { LeagueDetail };
+export function useLeaveLeague() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leagueId, userId }: { leagueId: string; userId: string }) =>
+      leaveLeague(leagueId, userId),
+    onSuccess: (_data, { leagueId }) => {
+      qc.setQueryData<LeagueListItem[]>(
+        ['leagues'],
+        (prev) => prev?.filter((l) => l.id !== leagueId) ?? [],
+      );
+      qc.removeQueries({ queryKey: ['leagues', leagueId] });
+    },
+  });
+}
+
+export function useLeagueDetail(id: string) {
+  return useQuery({
+    queryKey: ['leagues', id],
+    queryFn: () => getLeague(id),
+  });
+}
+
+export type { LeagueListItem, LeagueDetail };

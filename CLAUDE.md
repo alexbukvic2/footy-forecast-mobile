@@ -162,6 +162,17 @@ enough that human review misses things. For now it's overhead.
 
 Architectural decisions: `docs/decisions/NNNN-title.md` (ADR-style).
 
+## Design approach
+
+No design files are required for new features. Use the existing codebase as
+the design reference — the token set (`theme/`, `tailwind.config.js`),
+component patterns (cards, eyebrows, buttons, modals, the floating tab bar),
+and screen layouts already in `app/` establish the language. Build new screens
+to match what's there and iterate with the user if something doesn't look right.
+
+Design files in `docs/designs/` remain as historical reference; don't delete
+them, but don't wait for new ones before implementing.
+
 ## Things to never do
 
 - Never commit secrets — Cognito IDs go in env, not source
