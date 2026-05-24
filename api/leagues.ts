@@ -2,10 +2,11 @@ import type { components } from '@/types/api';
 import { apiFetch } from './client';
 
 type League = components['schemas']['League'];
+type LeagueListItem = components['schemas']['LeagueListItem'];
 type LeagueDetail = components['schemas']['LeagueDetail'];
 type LeagueListResponse = components['schemas']['LeagueListResponse'];
 
-export async function listLeagues(): Promise<League[]> {
+export async function listLeagues(): Promise<LeagueListItem[]> {
   const data = await apiFetch<LeagueListResponse>('/leagues');
   return data.leagues;
 }
@@ -33,4 +34,8 @@ export async function getLeague(id: string): Promise<LeagueDetail> {
 
 export async function deleteLeague(id: string): Promise<void> {
   await apiFetch<void>(`/leagues/${id}`, { method: 'DELETE' });
+}
+
+export async function leaveLeague(leagueId: string, userId: string): Promise<void> {
+  await apiFetch<void>(`/leagues/${leagueId}/members/${userId}`, { method: 'DELETE' });
 }

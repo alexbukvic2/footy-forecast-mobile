@@ -76,7 +76,7 @@ export interface LeagueMembership {
    * negative = dropped, 0 = held.
    */
   change: number;
-  /** True when the current user is the league commissioner. */
+  /** True when the current user is the league administrator. */
   isAdmin: boolean;
 }
 

@@ -73,50 +73,16 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tournaments/{tournament_id}/fixtures": {
+    "/tournaments/slug/{slug}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List fixtures for a tournament (personal prediction view) */
-        get: operations["listFixtures"];
+        /** Get tournament by slug */
+        get: operations["getTournamentBySlug"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/leagues/{leagueId}/predictions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List locked fixtures with all member predictions for a league */
-        get: operations["listLeaguePredictions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/predictions/{fixture_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Create or update a score prediction for a fixture */
-        put: operations["upsertScorePrediction"];
         post?: never;
         delete?: never;
         options?: never;
@@ -280,6 +246,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tournaments/{tournamentId}/predictions/players/{category}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upsert player tournament prediction */
+        put: operations["upsertPlayerPrediction"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tournaments/{tournamentId}/predictions/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my player predictions for a tournament */
+        get: operations["listMyPlayerPredictions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tournaments/{tournamentId}/predictions/teams/{category}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upsert team tournament prediction */
+        put: operations["upsertTeamPrediction"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tournaments/{tournamentId}/predictions/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my team predictions for a tournament */
+        get: operations["listMyTeamPredictions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/leagues/{leagueId}/predictions/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List league player predictions (after lock) */
+        get: operations["listLeaguePlayerPredictions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/leagues/{leagueId}/predictions/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List league team predictions (after lock) */
+        get: operations["listLeagueTeamPredictions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/openapi.json": {
         parameters: {
             query?: never;
@@ -417,6 +485,22 @@ export interface components {
         };
         /**
          * @example {
+         *       "id": "550e8400-e29b-41d4-a716-446655440001",
+         *       "tournament_id": "550e8400-e29b-41d4-a716-446655440000",
+         *       "owner_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "name": "My Prediction League",
+         *       "code": "ABCD1234",
+         *       "created_at": "2025-01-01T00:00:00Z",
+         *       "updated_at": "2025-01-01T00:00:00Z",
+         *       "member_count": 3
+         *     }
+         */
+        LeagueListItem: components["schemas"]["League"] & {
+            /** @description Total number of members in this league. */
+            member_count: number;
+        };
+        /**
+         * @example {
          *       "id": "550e8400-e29b-41d4-a716-446655440002",
          *       "email": "user@example.com",
          *       "display_name": "John Doe",
@@ -488,123 +572,6 @@ export interface components {
         TeamHandicapCategory: "group_winner" | "playoff" | "semifinalist" | "winner";
         /**
          * @example {
-         *       "id": "550e8400-e29b-41d4-a716-446655440010",
-         *       "external_id": 1001,
-         *       "tournament_id": "550e8400-e29b-41d4-a716-446655440000",
-         *       "home_team_name": "Brazil",
-         *       "away_team_name": "Argentina",
-         *       "kickoff_at": "2026-06-11T18:00:00Z",
-         *       "status": "finished",
-         *       "goals_home": 2,
-         *       "goals_away": 1
-         *     }
-         */
-        Fixture: {
-            /** Format: uuid */
-            id: string;
-            external_id: number;
-            /** Format: uuid */
-            tournament_id: string;
-            home_team_name: string;
-            away_team_name: string;
-            /** Format: date-time */
-            kickoff_at: string;
-            /** @enum {string} */
-            status: "upcoming" | "in_progress" | "finished";
-            goals_home?: number | null;
-            goals_away?: number | null;
-        };
-        /**
-         * @example {
-         *       "id": "550e8400-e29b-41d4-a716-446655440030",
-         *       "user_id": "550e8400-e29b-41d4-a716-446655440002",
-         *       "fixture_id": "550e8400-e29b-41d4-a716-446655440010",
-         *       "goals_home": 2,
-         *       "goals_away": 1,
-         *       "points": null,
-         *       "created_at": "2026-06-10T12:00:00Z",
-         *       "updated_at": "2026-06-10T12:00:00Z"
-         *     }
-         */
-        ScorePrediction: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            user_id: string;
-            /** Format: uuid */
-            fixture_id: string;
-            goals_home: number;
-            goals_away: number;
-            points?: number | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        /**
-         * @example {
-         *       "user_id": "550e8400-e29b-41d4-a716-446655440002",
-         *       "display_name": "Alice",
-         *       "goals_home": 2,
-         *       "goals_away": 1,
-         *       "points": 3
-         *     }
-         */
-        MemberPrediction: {
-            /** Format: uuid */
-            user_id: string;
-            display_name: string;
-            goals_home?: number | null;
-            goals_away?: number | null;
-            points?: number | null;
-        };
-        FixtureWithPrediction: components["schemas"]["Fixture"] & {
-            prediction?: components["schemas"]["ScorePrediction"];
-        };
-        FixtureWithMemberPredictions: components["schemas"]["Fixture"] & {
-            predictions: components["schemas"]["MemberPrediction"][];
-        };
-        FixtureListResponse: {
-            fixtures: components["schemas"]["FixtureWithPrediction"][];
-        };
-        /**
-         * @example {
-         *       "fixtures": [
-         *         {
-         *           "id": "550e8400-e29b-41d4-a716-446655440010",
-         *           "external_id": 1001,
-         *           "tournament_id": "550e8400-e29b-41d4-a716-446655440000",
-         *           "home_team_name": "Brazil",
-         *           "away_team_name": "Argentina",
-         *           "kickoff_at": "2026-06-11T18:00:00Z",
-         *           "status": "finished",
-         *           "goals_home": 2,
-         *           "goals_away": 1,
-         *           "predictions": [
-         *             {
-         *               "user_id": "550e8400-e29b-41d4-a716-446655440002",
-         *               "display_name": "Alice",
-         *               "goals_home": 2,
-         *               "goals_away": 1,
-         *               "points": 3
-         *             },
-         *             {
-         *               "user_id": "550e8400-e29b-41d4-a716-446655440003",
-         *               "display_name": "Bob",
-         *               "goals_home": 1,
-         *               "goals_away": 0,
-         *               "points": null
-         *             }
-         *           ]
-         *         }
-         *       ]
-         *     }
-         */
-        LeaguePredictionsResponse: {
-            fixtures: components["schemas"]["FixtureWithMemberPredictions"][];
-        };
-        /**
-         * @example {
          *       "tournaments": [
          *         {
          *           "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -632,13 +599,14 @@ export interface components {
          *           "name": "My Prediction League",
          *           "code": "ABCD1234",
          *           "created_at": "2025-01-01T00:00:00Z",
-         *           "updated_at": "2025-01-01T00:00:00Z"
+         *           "updated_at": "2025-01-01T00:00:00Z",
+         *           "member_count": 3
          *         }
          *       ]
          *     }
          */
         LeagueListResponse: {
-            leagues: components["schemas"]["League"][];
+            leagues: components["schemas"]["LeagueListItem"][];
         };
         /**
          * @example {
@@ -658,6 +626,168 @@ export interface components {
          */
         PlayerListResponse: {
             players: components["schemas"]["Player"][];
+        };
+        /**
+         * @example {
+         *       "player_id": "550e8400-e29b-41d4-a716-446655440003"
+         *     }
+         */
+        UpsertPlayerPredictionRequest: {
+            /** Format: uuid */
+            player_id: string;
+        };
+        /**
+         * @example {
+         *       "team_id": "550e8400-e29b-41d4-a716-446655440004"
+         *     }
+         */
+        UpsertTeamPredictionRequest: {
+            /** Format: uuid */
+            team_id: string;
+        };
+        /**
+         * @example {
+         *       "id": "550e8400-e29b-41d4-a716-446655440010",
+         *       "tournament_id": "550e8400-e29b-41d4-a716-446655440000",
+         *       "category": "group_top_scorer",
+         *       "player_id": "550e8400-e29b-41d4-a716-446655440003",
+         *       "player_name": "Lionel Messi",
+         *       "points": null
+         *     }
+         */
+        PlayerPredictionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tournament_id: string;
+            category: components["schemas"]["PlayerHandicapCategory"];
+            /** Format: uuid */
+            player_id: string;
+            player_name: string;
+            points?: number | null;
+        };
+        /**
+         * @example {
+         *       "id": "550e8400-e29b-41d4-a716-446655440011",
+         *       "tournament_id": "550e8400-e29b-41d4-a716-446655440000",
+         *       "category": "winner",
+         *       "team_id": "550e8400-e29b-41d4-a716-446655440004",
+         *       "team_name": "Argentina",
+         *       "points": null
+         *     }
+         */
+        TeamPredictionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tournament_id: string;
+            category: components["schemas"]["TeamHandicapCategory"];
+            /** Format: uuid */
+            team_id: string;
+            team_name: string;
+            points?: number | null;
+        };
+        /**
+         * @example {
+         *       "category": "group_top_scorer",
+         *       "player_id": "550e8400-e29b-41d4-a716-446655440003",
+         *       "player_name": "Lionel Messi",
+         *       "points": null
+         *     }
+         */
+        PlayerPredictionView: {
+            category: components["schemas"]["PlayerHandicapCategory"];
+            /** Format: uuid */
+            player_id?: string | null;
+            player_name?: string | null;
+            points?: number | null;
+        };
+        /**
+         * @example {
+         *       "category": "winner",
+         *       "team_id": "550e8400-e29b-41d4-a716-446655440004",
+         *       "team_name": "Argentina",
+         *       "points": null
+         *     }
+         */
+        TeamPredictionView: {
+            category: components["schemas"]["TeamHandicapCategory"];
+            /** Format: uuid */
+            team_id?: string | null;
+            team_name?: string | null;
+            points?: number | null;
+        };
+        /**
+         * @example {
+         *       "user_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "display_name": "alice",
+         *       "player_id": "550e8400-e29b-41d4-a716-446655440003",
+         *       "player_name": "Lionel Messi",
+         *       "points": 5
+         *     }
+         */
+        LeagueMemberPlayerPick: {
+            /** Format: uuid */
+            user_id: string;
+            display_name: string;
+            /** Format: uuid */
+            player_id?: string | null;
+            player_name?: string | null;
+            points?: number | null;
+        };
+        /**
+         * @example {
+         *       "user_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "display_name": "alice",
+         *       "team_id": "550e8400-e29b-41d4-a716-446655440004",
+         *       "team_name": "Argentina",
+         *       "points": null
+         *     }
+         */
+        LeagueMemberTeamPick: {
+            /** Format: uuid */
+            user_id: string;
+            display_name: string;
+            /** Format: uuid */
+            team_id?: string | null;
+            team_name?: string | null;
+            points?: number | null;
+        };
+        /**
+         * @example {
+         *       "category": "group_top_scorer",
+         *       "predictions": [
+         *         {
+         *           "user_id": "550e8400-e29b-41d4-a716-446655440002",
+         *           "display_name": "me",
+         *           "player_id": "550e8400-e29b-41d4-a716-446655440003",
+         *           "player_name": "Messi",
+         *           "points": 5
+         *         }
+         *       ]
+         *     }
+         */
+        LeaguePlayerCategoryView: {
+            category: components["schemas"]["PlayerHandicapCategory"];
+            predictions: components["schemas"]["LeagueMemberPlayerPick"][];
+        };
+        /**
+         * @example {
+         *       "category": "winner",
+         *       "predictions": [
+         *         {
+         *           "user_id": "550e8400-e29b-41d4-a716-446655440002",
+         *           "display_name": "me",
+         *           "team_id": "550e8400-e29b-41d4-a716-446655440004",
+         *           "team_name": "Argentina",
+         *           "points": null
+         *         }
+         *       ]
+         *     }
+         */
+        LeagueTeamCategoryView: {
+            category: components["schemas"]["TeamHandicapCategory"];
+            predictions: components["schemas"]["LeagueMemberTeamPick"][];
         };
     };
     responses: never;
@@ -896,174 +1026,27 @@ export interface operations {
             };
         };
     };
-    listFixtures: {
+    getTournamentBySlug: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                tournament_id: string;
+                slug: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Fixtures with the caller's prediction for each */
+            /** @description Tournament found */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FixtureListResponse"];
+                    "application/json": components["schemas"]["Tournament"];
                 };
             };
-            /** @description Invalid tournament ID */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    listLeaguePredictions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                leagueId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Locked fixtures with member predictions (requesting user first, then alphabetical) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LeaguePredictionsResponse"];
-                };
-            };
-            /** @description Invalid league ID */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Not a member of this league */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    upsertScorePrediction: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                fixture_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "goals_home": 2,
-                 *       "goals_away": 1
-                 *     }
-                 */
-                "application/json": {
-                    goals_home: number;
-                    goals_away: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Prediction created or updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScorePrediction"];
-                };
-            };
-            /** @description Invalid input or negative goals */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Fixture has already kicked off */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Fixture not found */
+            /** @description Tournament not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1808,6 +1791,364 @@ export interface operations {
             };
             /** @description Handicap not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upsertPlayerPrediction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tournamentId: string;
+                category: components["schemas"]["PlayerHandicapCategory"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertPlayerPredictionRequest"];
+            };
+        };
+        responses: {
+            /** @description Player prediction saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerPredictionResponse"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Predictions locked */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Player not found in this tournament */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyPlayerPredictions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tournamentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Player predictions for all categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerPredictionView"][];
+                };
+            };
+            /** @description Invalid tournament ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    upsertTeamPrediction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tournamentId: string;
+                category: components["schemas"]["TeamHandicapCategory"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertTeamPredictionRequest"];
+            };
+        };
+        responses: {
+            /** @description Team prediction saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamPredictionResponse"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Predictions locked */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Team not found in this tournament */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyTeamPredictions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tournamentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Team predictions for all categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamPredictionView"][];
+                };
+            };
+            /** @description Invalid tournament ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listLeaguePlayerPredictions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                leagueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Player predictions for all categories grouped by league member */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaguePlayerCategoryView"][];
+                };
+            };
+            /** @description Invalid league ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not a member of the league, or lock time has not passed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listLeagueTeamPredictions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                leagueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Team predictions for all categories grouped by league member */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueTeamCategoryView"][];
+                };
+            };
+            /** @description Invalid league ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not a member of the league, or lock time has not passed */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

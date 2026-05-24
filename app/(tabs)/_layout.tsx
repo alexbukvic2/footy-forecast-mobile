@@ -1,10 +1,6 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Home, Users } from 'lucide-react-native';
+import { TabBar } from '@/components/TabBar';
 import { useLeagues } from '@/hooks/useLeagues';
-
-const ACTIVE = '#D86B3D';
-const INACTIVE = 'rgba(245,232,210,0.35)';
-const TAB_BG = '#130D09';
 
 export default function TabsLayout() {
   const { data: leagues, isPending, isFetching } = useLeagues();
@@ -17,36 +13,20 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: ACTIVE,
-        tabBarInactiveTintColor: INACTIVE,
-        tabBarStyle: {
-          backgroundColor: TAB_BG,
-          borderTopColor: 'rgba(245,232,210,0.08)',
-          borderTopWidth: 1,
-        },
-        tabBarLabelStyle: {
-          fontFamily: 'SpaceMono',
-          fontSize: 10,
-          letterSpacing: 0.5,
-        },
+      screenOptions={{ headerShown: false }}
+      initialRouteName="leagues"
+      tabBar={(props) => {
+        const route = props.state.routes[props.state.index];
+        return (
+          <TabBar
+            active={route?.name ?? 'leagues'}
+            onChange={(id) => props.navigation.navigate(id)}
+          />
+        );
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <Home size={size} color={color} strokeWidth={1.8} />,
-        }}
-      />
-      <Tabs.Screen
-        name="leagues"
-        options={{
-          title: 'Leagues',
-          tabBarIcon: ({ color, size }) => <Users size={size} color={color} strokeWidth={1.8} />,
-        }}
-      />
+      <Tabs.Screen name="leagues" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }

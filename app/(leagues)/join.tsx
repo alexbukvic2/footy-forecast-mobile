@@ -31,15 +31,6 @@ function WarmTopGlow() {
 function Wordmark() {
   return (
     <View className="flex-row items-center gap-2.5">
-      <View className="w-7 h-7 rounded-card bg-brand-500 items-center justify-center">
-        <Text className="font-display font-bold text-ink-invert text-[11px]">FF</Text>
-      </View>
-      <View>
-        <Text className="font-display font-bold text-sm tracking-tight">Footy Forecast</Text>
-        <Text className="font-mono uppercase text-ink-dim tracking-widest text-[9px]">
-          {"World Cup '26 · beta"}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -122,14 +113,6 @@ function SuccessView({ league }: { league: League }) {
             </Pressable>
           </View>
         </View>
-
-        {/* Stats */}
-        <View className="mt-5 rounded-card border border-line overflow-hidden">
-          <View className="bg-bg p-4">
-            <Text className="font-mono text-eyebrow uppercase text-ink-muted">CREATED</Text>
-            <Text className="mt-1 font-display font-bold text-[22px] text-ink leading-[30px]">{created}</Text>
-          </View>
-        </View>
       </View>
 
       <View className="px-5 pb-10">
@@ -204,7 +187,7 @@ export default function JoinScreen() {
 
   const errorMessage =
     error instanceof ApiError && error.status === 404
-      ? `No league with code ${code}. Check with the commissioner.`
+      ? `No league with code ${code}. Check with the administrator.`
       : error instanceof ApiError && error.status === 409
         ? 'You are already a member of this league.'
         : error !== null
@@ -232,6 +215,11 @@ export default function JoinScreen() {
     const nextFocus = Math.min(cursor, SLOTS - 1);
     setFocusIdx(nextFocus);
     inputsRef.current[nextFocus]?.focus();
+
+    const newCode = next.join('');
+    if (newCode.length === SLOTS && !isPending) {
+      joinLeague(newCode, { onSuccess: (league) => setJoinedLeague(league) });
+    }
   }
 
   function handleKeyPress(i: number, e: { nativeEvent: { key: string } }) {
@@ -243,13 +231,6 @@ export default function JoinScreen() {
       inputsRef.current[i - 1]?.focus();
       setFocusIdx(i - 1);
     }
-  }
-
-  function handleSubmit() {
-    if (!filled || isPending) return;
-    joinLeague(code, {
-      onSuccess: (league) => setJoinedLeague(league),
-    });
   }
 
   if (joinedLeague) {
@@ -315,7 +296,9 @@ export default function JoinScreen() {
       {/* CTA */}
       <View className="px-5 pb-10">
         <Pressable
-          onPress={handleSubmit}
+          onPress={() => {
+            if (filled && !isPending) joinLeague(code, { onSuccess: (league) => setJoinedLeague(league) });
+          }}
           disabled={!filled || isPending}
           accessibilityRole="button"
           className={`w-full h-14 rounded-pill bg-brand-500 items-center justify-center ${!filled || isPending ? 'opacity-40' : ''}`}

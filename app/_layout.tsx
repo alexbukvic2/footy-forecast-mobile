@@ -1,7 +1,7 @@
 import "../global.css";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Slot } from "expo-router";
+import { Slot, useRouter, useSegments } from "expo-router";
 import { SessionProvider, useSession } from "@/auth/session";
 import { registerSignOutHandler } from "@/api/client";
 
@@ -16,11 +16,21 @@ const queryClient = new QueryClient({
 });
 
 function AuthGateway() {
-  const { signOut } = useSession();
+  const { session, isLoading, signOut } = useSession();
+  const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
     registerSignOutHandler(signOut);
   }, [signOut]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const inAuthGroup = segments.at(0) === '(auth)';
+    if (!session && !inAuthGroup) {
+      router.replace('/(auth)/sign-in');
+    }
+  }, [session, isLoading, segments, router]);
 
   return <Slot />;
 }
