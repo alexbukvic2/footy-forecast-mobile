@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Footy Forecast — Leagues (Join / Create flow)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Mirror of Sign In.html — keep in sync.
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0E0B09',
+            surface: { DEFAULT: '#181311', raised: '#231B17', sunken: '#0E0B09' },
+            ink:     { DEFAULT: '#F5E8D2', muted: 'rgba(245,232,210,0.55)', dim: 'rgba(245,232,210,0.35)', invert: '#1A0E08' },
+            line:    { DEFAULT: 'rgba(245,232,210,0.08)', strong: 'rgba(245,232,210,0.16)' },
+            brand: {
+              50:'#FBEDE5',100:'#F4D3C0',200:'#EDB497',300:'#E4906A',400:'#DC7B4F',
+              500:'#D86B3D',600:'#B85530',700:'#8F4124',800:'#5F2B18',900:'#3B1A0E',
+              soft: 'rgba(216,107,61,0.14)',
+            },
+            success: '#7FB069', warning: '#E8A14B', danger: '#D84A4A',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+            display: ['"Space Grotesk"', 'Inter', 'sans-serif'],
+          },
+          fontSize: {
+            eyebrow: ['10.5px', { lineHeight: '14px', letterSpacing: '1.6px' }],
+            'hud-md': ['28px', { lineHeight: '30px', letterSpacing: '-0.6px' }],
+            'hud-lg': ['40px', { lineHeight: '42px', letterSpacing: '-1.2px' }],
+            'hud-xl': ['56px', { lineHeight: '56px', letterSpacing: '-2px' }],
+          },
+          borderRadius: { card: '18px', tab: '22px', pill: '999px' },
+          spacing: { 'screen-x':'20px', 'screen-top':'54px', 'tab-h':'64px' },
+          boxShadow: {
+            card: '0 18px 40px rgba(0,0,0,0.45)',
+            'card-sm': '0 8px 18px rgba(0,0,0,0.35)',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    html, body { margin: 0; padding: 0; background: #0E0B09; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', system-ui, sans-serif; color: #F5E8D2; }
+
+    /* iPhone-ish bezel (matches Sign In.html) */
+    .bezel {
+      width: 392px;
+      height: 850px;
+      border-radius: 56px;
+      padding: 12px;
+      background: #1a1a1a;
+      box-shadow:
+        inset 0 0 0 2px #2a2a2a,
+        0 30px 80px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .bezel::after {
+      content: '';
+      position: absolute;
+      top: 18px; left: 50%;
+      width: 110px; height: 30px;
+      background: #000;
+      border-radius: 20px;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+    .screen {
+      width: 100%;
+      height: 100%;
+      border-radius: 44px;
+      background: #0E0B09;
+      overflow: hidden;
+      position: relative;
+    }
+    .screen-content { padding-top: 54px; }
+
+    /* Faint stadium-stripe noise — same recipe as sign-in V1 */
+    .stadium-noise {
+      position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(216,107,61,0.04) 22px 23px);
+    }
+
+    /* Cursor-blink in code tiles */
+    @keyframes caretBlink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    .caret { animation: caretBlink 1s steps(1, end) infinite; }
+
+    /* Slide transition for the screen layer */
+    .screen-layer {
+      position: absolute; inset: 0;
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+    }
+    .screen-layer.enter-right { opacity: 0; transform: translateX(24px); }
+    .screen-layer.enter-left  { opacity: 0; transform: translateX(-24px); }
+    .screen-layer.active      { opacity: 1; transform: translateX(0); }
+    .screen-layer.exit-left   { opacity: 0; transform: translateX(-24px); }
+    .screen-layer.exit-right  { opacity: 0; transform: translateX(24px); }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root">
+    <div style="padding: 80px 24px; color: rgba(245,232,210,0.55); font-family: 'JetBrains Mono', monospace; font-size: 12px;">Loading…</div>
+  </div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ── Brand atoms (lifted from Sign In.html) ─────────────────────────
+    const Wordmark = ({ size = 'sm' }) => {
+      const s = size === 'lg' ? { box: 44, txt: 18, wm: 'text-xl' }
+              : size === 'sm' ? { box: 26, txt: 11, wm: 'text-[11px]' }
+              :                  { box: 32, txt: 13, wm: 'text-sm' };
+      return (
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-card bg-brand-500 grid place-items-center" style={{ width: s.box, height: s.box }}>
+            <span className="font-display font-bold text-ink-invert" style={{ fontSize: s.txt }}>FF</span>
+          </div>
+          <div className="flex flex-col leading-[1.05]">
+            <span className={`font-display font-bold tracking-tight ${s.wm}`}>Footy Forecast</span>
+            <span className="font-mono uppercase text-ink-dim tracking-[0.18em] text-[9px]">World Cup '26 · beta</span>
+          </div>
+        </div>
+      );
+    };
+
+    const WarmTopGlow = () => (
+      <div className="absolute top-0 left-0 right-0 pointer-events-none"
+        style={{ height: 420, background: 'linear-gradient(180deg, rgba(216,107,61,0.18) 0%, rgba(216,107,61,0) 100%)' }} />
+    );
+
+    const BackChevron = ({ onClick }) => (
+      <button onClick={onClick} aria-label="Back"
+        className="w-9 h-9 rounded-pill border border-line hover:bg-surface-raised active:bg-surface grid place-items-center transition">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-ink">
+          <path d="M15 18L9 12L15 6"/>
+        </svg>
+      </button>
+    );
+
+    const PrimaryButton = ({ children, onClick, disabled, loading }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled || loading}
+        className={`w-full h-14 rounded-pill bg-brand-500 hover:bg-brand-400 active:bg-brand-600
+                    flex items-center justify-center gap-2.5 transition shadow-card-sm
+                    ${disabled || loading ? 'opacity-40' : ''}`}
+      >
+        {loading ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" className="animate-spin">
+            <circle cx="12" cy="12" r="9" stroke="rgba(26,14,8,0.25)" strokeWidth="3" fill="none" />
+            <path d="M21 12a9 9 0 0 0-9-9" stroke="#1A0E08" strokeWidth="3" fill="none" strokeLinecap="round" />
+          </svg>
+        ) : null}
+        <span className="font-sans font-semibold text-[15px] text-ink-invert">{children}</span>
+      </button>
+    );
+
+    const SecondaryButton = ({ children, onClick }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full h-14 rounded-pill bg-surface-raised border border-line
+                   hover:bg-surface active:opacity-90 flex items-center justify-center gap-2 transition"
+      >
+        <span className="font-sans font-semibold text-[15px] text-ink">{children}</span>
+      </button>
+    );
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+    // Fake "server": one league exists with code WC26GB.
+    const KNOWN_LEAGUES = {
+      'WC26GB': { name: 'Campeones', members: 14, created: 'Apr 12' },
+      'OFFICE': { name: 'Q3 Sales Floor',    members: 23, created: 'Apr 28' },
+    };
+
+    // Code generator — 6 chars, alphanumeric, no easily-confused glyphs (0/O/1/I).
+    const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    function genCode() {
+      let out = '';
+      for (let i = 0; i < 6; i++) out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+      return out;
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Screen 1 — NO LEAGUE (chooser)
+    // ────────────────────────────────────────────────────────────────────
+    const ChooserScreen = ({ onCreate, onJoin }) => (
+      <div className="screen flex flex-col">
+        <WarmTopGlow />
+        <div className="stadium-noise" />
+        <div className="screen-content flex flex-col flex-1 relative">
+          {/* Top */}
+          <div className="px-5 pt-3 flex items-center">
+            <Wordmark size="sm" />
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 flex flex-col px-6 pt-12">
+            <div className="font-mono text-eyebrow uppercase text-brand-500 tracking-widest">
+              ROSTER · EMPTY
+            </div>
+
+            <h1 className="mt-3 font-display font-bold leading-[0.96] tracking-tight text-ink"
+                style={{ fontSize: 42 }}>
+              You're in.<br/>
+              <span className="text-brand-500">Now pick a side.</span>
+            </h1>
+
+            {/* Two-up choice cards */}
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              <div className="rounded-card border border-line p-4 bg-surface/40">
+                <div className="w-10 h-10 rounded-card bg-brand-soft grid place-items-center mb-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D86B3D"
+                       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </div>
+                <div className="font-display font-bold text-[15px] text-ink leading-tight">Start one</div>
+                <div className="mt-1 text-[12px] text-ink-dim leading-snug">You'll get a code to share.</div>
+              </div>
+              <div className="rounded-card border border-line p-4 bg-surface/40">
+                <div className="w-10 h-10 rounded-card bg-brand-soft grid place-items-center mb-3">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D86B3D"
+                       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 11l3 3 8-8"/>
+                    <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7"/>
+                  </svg>
+                </div>
+                <div className="font-display font-bold text-[15px] text-ink leading-tight">Got a code?</div>
+                <div className="mt-1 text-[12px] text-ink-dim leading-snug">Six letters from a friend.</div>
+              </div>
+            </div>
+          </div>
+
+          {/* CTAs */}
+          <div className="px-5 pb-10 space-y-3">
+            <PrimaryButton onClick={onCreate}>Create a league</PrimaryButton>
+            <SecondaryButton onClick={onJoin}>Join with code</SecondaryButton>
+          </div>
+        </div>
+      </div>
+    );
+
+    // ────────────────────────────────────────────────────────────────────
+    // Screen 2 — CREATE LEAGUE
+    // ────────────────────────────────────────────────────────────────────
+    const CreateScreen = ({ onBack, onCreate }) => {
+      const [name, setName] = useState('');
+      const [loading, setLoading] = useState(false);
+      const inputRef = useRef(null);
+      useEffect(() => { inputRef.current?.focus(); }, []);
+
+      const valid = name.trim().length >= 3 && name.trim().length <= 32;
+
+      const submit = () => {
+        if (!valid || loading) return;
+        setLoading(true);
+        setTimeout(() => onCreate({ name: name.trim(), code: genCode(), members: 1, created: 'just now' }), 600);
+      };
+
+      return (
+        <div className="screen flex flex-col">
+          <WarmTopGlow />
+          <div className="screen-content flex flex-col flex-1 relative">
+            {/* Top — back + tiny wordmark */}
+            <div className="px-5 pt-3 flex items-center gap-3">
+              <BackChevron onClick={onBack} />
+              <Wordmark size="sm" />
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 flex flex-col px-6 pt-9">
+              <div className="font-mono text-eyebrow uppercase text-brand-500 tracking-widest">
+                NEW LEAGUE · 01 / 01
+              </div>
+              <h1 className="mt-3 font-display font-bold leading-[1.0] tracking-tight text-ink"
+                  style={{ fontSize: 36 }}>
+                Give it a<br/>name.
+              </h1>
+              <p className="mt-3 text-[14px] leading-relaxed text-ink-muted max-w-[300px]">
+                Something your friends will recognize. You can rename it later.
+              </p>
+
+              {/* League-name field */}
+              <div className="mt-7">
+                <label className="font-mono text-eyebrow uppercase text-ink-muted block mb-1.5">
+                  LEAGUE NAME
+                </label>
+                <div className={`rounded-card border bg-surface-raised h-14 px-4 flex items-center
+                                  ${name.length ? 'border-brand-500' : 'border-line'}`}>
+                  <input
+                    ref={inputRef}
+                    value={name}
+                    onChange={(e) => setName(e.target.value.slice(0, 32))}
+                    onKeyDown={(e) => e.key === 'Enter' && submit()}
+                    placeholder="Campeones"
+                    className="flex-1 bg-transparent outline-none text-ink placeholder:text-ink-dim
+                               font-sans text-[16px]"
+                  />
+                  <span className="font-mono text-[11px] text-ink-dim tabular-nums">
+                    {name.length}/32
+                  </span>
+                </div>
+                <div className="mt-2 text-[12px] text-ink-dim font-sans">3–32 characters. Emoji allowed.</div>
+              </div>
+
+            </div>
+
+            <div className="px-5 pb-10">
+              <PrimaryButton onClick={submit} disabled={!valid} loading={loading}>
+                {loading ? 'Creating…' : 'Create league'}
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ────────────────────────────────────────────────────────────────────
+    // Screen 3 — JOIN LEAGUE
+    // ────────────────────────────────────────────────────────────────────
+    const JoinScreen = ({ onBack, onJoin }) => {
+      const SLOTS = 6;
+      const [digits, setDigits] = useState(Array(SLOTS).fill(''));
+      const [focusIdx, setFocusIdx] = useState(0);
+      const [error, setError] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const inputsRef = useRef([]);
+      useEffect(() => { inputsRef.current[0]?.focus(); }, []);
+
+      const code = digits.join('');
+      const filled = code.length === SLOTS;
+
+      const setDigit = (i, raw) => {
+        // Normalize: uppercase, strip invalid chars, accept paste of multi-char
+        const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (!cleaned) {
+          // Backspace path: clear current
+          const next = [...digits];
+          next[i] = '';
+          setDigits(next);
+          setError(null);
+          return;
+        }
+        const next = [...digits];
+        let cursor = i;
+        for (const ch of cleaned) {
+          if (cursor >= SLOTS) break;
+          next[cursor] = ch;
+          cursor++;
+        }
+        setDigits(next);
+        setError(null);
+        const nextFocus = Math.min(cursor, SLOTS - 1);
+        setFocusIdx(nextFocus);
+        inputsRef.current[nextFocus]?.focus();
+      };
+
+      const handleKeyDown = (i, e) => {
+        if (e.key === 'Backspace' && !digits[i] && i > 0) {
+          inputsRef.current[i - 1]?.focus();
+          setFocusIdx(i - 1);
+          const next = [...digits];
+          next[i - 1] = '';
+          setDigits(next);
+          e.preventDefault();
+        } else if (e.key === 'ArrowLeft' && i > 0) {
+          inputsRef.current[i - 1]?.focus();
+          setFocusIdx(i - 1);
+        } else if (e.key === 'ArrowRight' && i < SLOTS - 1) {
+          inputsRef.current[i + 1]?.focus();
+          setFocusIdx(i + 1);
+        } else if (e.key === 'Enter' && filled) {
+          submit();
+        }
+      };
+
+      const submit = () => {
+        if (!filled || loading) return;
+        setLoading(true);
+        setTimeout(() => {
+          const league = KNOWN_LEAGUES[code];
+          if (league) {
+            onJoin({ name: league.name, code, members: league.members + 1, created: league.created });
+          } else {
+            setError(`No league with code ${code}. Check with the commissioner.`);
+            setLoading(false);
+          }
+        }, 600);
+      };
+
+      return (
+        <div className="screen flex flex-col">
+          <WarmTopGlow />
+          <div className="screen-content flex flex-col flex-1 relative">
+            {/* Top */}
+            <div className="px-5 pt-3 flex items-center gap-3">
+              <BackChevron onClick={onBack} />
+              <Wordmark size="sm" />
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 flex flex-col px-6 pt-9">
+              <div className="font-mono text-eyebrow uppercase text-brand-500 tracking-widest">
+                ENTER CODE
+              </div>
+              <h1 className="mt-3 font-display font-bold leading-[1.0] tracking-tight text-ink"
+                  style={{ fontSize: 36 }}>
+                What's the<br/>code?
+              </h1>
+              <p className="mt-3 text-[14px] leading-relaxed text-ink-muted max-w-[300px]">
+                Six characters from whoever runs the league. Not case sensitive.
+              </p>
+
+              {/* Segmented code input */}
+              <div className="mt-9 flex items-center gap-2 justify-center">
+                {digits.map((d, i) => {
+                  const isFocus = i === focusIdx;
+                  const filled = !!d;
+                  return (
+                    <div key={i} className="relative">
+                      <input
+                        ref={(el) => (inputsRef.current[i] = el)}
+                        value={d}
+                        onChange={(e) => setDigit(i, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(i, e)}
+                        onFocus={() => setFocusIdx(i)}
+                        inputMode="text"
+                        autoCapitalize="characters"
+                        maxLength={6 /* allow paste */}
+                        aria-label={`Code character ${i + 1}`}
+                        className={`w-12 h-14 rounded-card border-2 bg-surface-raised text-center
+                                    font-mono font-bold text-[24px] text-ink outline-none caret-transparent
+                                    transition-colors
+                                    ${error ? 'border-danger'
+                                      : isFocus ? 'border-brand-500'
+                                      : filled ? 'border-line-strong'
+                                      : 'border-line'}`}
+                      />
+                      {isFocus && !d && !error ? (
+                        <span className="caret pointer-events-none absolute top-1/2 left-1/2
+                                          -translate-x-1/2 -translate-y-1/2 w-[2px] h-6 bg-brand-500"/>
+                      ) : null}
+                      {i === 2 ? (
+                        <span className="absolute -right-2 top-1/2 -translate-y-1/2 text-ink-dim font-mono">·</span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Error */}
+              <div className="mt-4 min-h-[20px] text-center">
+                {error ? (
+                  <span className="text-[12.5px] text-danger font-sans">{error}</span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="px-5 pb-10">
+              <PrimaryButton onClick={submit} disabled={!filled} loading={loading}>
+                {loading ? 'Checking…' : 'Join league'}
+              </PrimaryButton>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ────────────────────────────────────────────────────────────────────
+    // Screen 4 — JOINED / CREATED success
+    // ────────────────────────────────────────────────────────────────────
+    const SuccessScreen = ({ league, isCreator, onContinue, onReset }) => {
+      const [copied, setCopied] = useState(false);
+      const copy = () => {
+        navigator.clipboard?.writeText(league.code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      };
+
+      return (
+        <div className="screen flex flex-col">
+          <WarmTopGlow />
+          <div className="stadium-noise" />
+          <div className="screen-content flex flex-col flex-1 relative">
+            {/* Top */}
+            <div className="px-5 pt-3 flex items-center justify-between">
+              <Wordmark size="sm" />
+              <button onClick={onReset} className="font-mono text-[9px] uppercase tracking-[0.18em]
+                                                    text-ink-dim hover:text-ink-muted">
+                start over
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 flex flex-col px-6 pt-9 relative">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-success" />
+                <span className="font-mono text-eyebrow uppercase tracking-widest" style={{ color: '#7FB069' }}>
+                  {isCreator ? 'LEAGUE CREATED' : 'YOU\'RE IN'}
+                </span>
+              </div>
+
+              <h1 className="mt-3 font-display font-bold leading-[1.0] tracking-tight text-ink"
+                  style={{ fontSize: 34 }}>
+                {league.name}
+              </h1>
+
+              <p className="mt-3 text-[14px] leading-relaxed text-ink-muted max-w-[300px]">
+                {isCreator
+                  ? 'You\'re the commissioner. Share the code so your friends can join.'
+                  : 'You\'ve joined the pool. Your first predictions are due before kickoff.'}
+              </p>
+
+              {/* Code card */}
+              <div className="mt-7 rounded-card border border-line bg-surface-raised p-5">
+                <div className="font-mono text-eyebrow uppercase text-ink-muted">JOIN CODE</div>
+                <div className="mt-1 flex items-baseline justify-between gap-3">
+                  <div className="font-mono font-bold text-[30px] tracking-[0.22em] text-ink">
+                    {league.code.split('').map((c, i) => (
+                      <span key={i} className={i === 3 ? 'ml-3' : ''}>{c}</span>
+                    ))}
+                  </div>
+                  <button onClick={copy}
+                    className="h-9 px-3 rounded-pill border border-line hover:bg-surface
+                               active:opacity-90 flex items-center gap-1.5 transition">
+                    {copied ? (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7FB069"
+                             strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 6L9 17l-5-5"/>
+                        </svg>
+                        <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: '#7FB069' }}>copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                             className="text-ink-muted">
+                          <rect x="9" y="9" width="13" height="13" rx="2"/>
+                          <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+                        </svg>
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabular stats — pure flex, no slop */}
+              <div className="mt-5 grid grid-cols-2 gap-px bg-line rounded-card overflow-hidden border border-line">
+                <div className="bg-bg p-4">
+                  <div className="font-mono text-eyebrow uppercase text-ink-muted">MEMBERS</div>
+                  <div className="mt-1 font-display font-bold text-hud-md text-ink tabular-nums">{league.members}</div>
+                </div>
+                <div className="bg-bg p-4">
+                  <div className="font-mono text-eyebrow uppercase text-ink-muted">CREATED</div>
+                  <div className="mt-1 font-display font-bold text-[22px] text-ink leading-[30px]">{league.created}</div>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="px-5 pb-10">
+              <PrimaryButton onClick={onContinue}>Go to today's matches</PrimaryButton>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ────────────────────────────────────────────────────────────────────
+    // Flow controller
+    // ────────────────────────────────────────────────────────────────────
+    const FLOW = {
+      CHOOSER: 'chooser',
+      CREATE:  'create',
+      JOIN:    'join',
+      SUCCESS: 'success',
+    };
+
+    function FlowApp() {
+      const [route, setRoute] = useState(FLOW.CHOOSER);
+      const [league, setLeague] = useState(null);
+      const [isCreator, setIsCreator] = useState(false);
+
+      const go = (next) => setRoute(next);
+
+      let body = null;
+      if (route === FLOW.CHOOSER) {
+        body = <ChooserScreen onCreate={() => go(FLOW.CREATE)} onJoin={() => go(FLOW.JOIN)} />;
+      } else if (route === FLOW.CREATE) {
+        body = (
+          <CreateScreen
+            onBack={() => go(FLOW.CHOOSER)}
+            onCreate={(l) => { setLeague(l); setIsCreator(true); go(FLOW.SUCCESS); }}
+          />
+        );
+      } else if (route === FLOW.JOIN) {
+        body = (
+          <JoinScreen
+            onBack={() => go(FLOW.CHOOSER)}
+            onJoin={(l) => { setLeague(l); setIsCreator(false); go(FLOW.SUCCESS); }}
+          />
+        );
+      } else if (route === FLOW.SUCCESS) {
+        body = (
+          <SuccessScreen
+            league={league}
+            isCreator={isCreator}
+            onContinue={() => { /* would route to /today in app */ }}
+            onReset={() => { setLeague(null); setIsCreator(false); go(FLOW.CHOOSER); }}
+          />
+        );
+      }
+      return body;
+    }
+
+    // ── Sidebar: notes + flow controls ──────────────────────────────────
+    const App = () => {
+      const [route, setRoute] = useState(FLOW.CHOOSER);
+      // jumper that lets the user skip to any screen for inspection
+      const jump = (r) => setRoute(r);
+
+      return (
+        <div className="min-h-screen flex items-center justify-center px-10 py-16 gap-12 flex-wrap">
+          <div className="bezel">
+            <Phone route={route} setRoute={setRoute} />
+          </div>
+
+          <aside className="max-w-sm space-y-6">
+            <div>
+              <div className="font-mono text-eyebrow uppercase text-brand-500 tracking-widest mb-2">
+                leagues · entry flow
+              </div>
+              <h1 className="font-display text-3xl font-bold tracking-tight mb-3">Pick a side.</h1>
+              <p className="text-ink-muted text-sm leading-relaxed">
+                After sign-in, a leagueless user lands on the chooser. From there: spin up a new league
+                (gets a shareable code) or drop into one (six-character code, validated against the
+                server). Both flows end at a shared confirmation.
+              </p>
+            </div>
+
+            {/* Quick-jump pills */}
+            <div>
+              <div className="font-mono text-eyebrow uppercase text-ink-muted tracking-widest mb-2">Jump to screen</div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: FLOW.CHOOSER, label: '01 Chooser' },
+                  { id: FLOW.CREATE,  label: '02 Create' },
+                  { id: FLOW.JOIN,    label: '03 Join' },
+                  { id: FLOW.SUCCESS, label: '04 Success' },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => jump(s.id)}
+                    className={`px-3 h-8 rounded-pill border text-[11px] font-mono uppercase tracking-widest transition
+                                ${route === s.id
+                                  ? 'border-brand-500 text-brand-500 bg-brand-soft'
+                                  : 'border-line text-ink-muted hover:bg-surface-raised'}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-line pt-5 space-y-3 text-sm text-ink-muted leading-relaxed">
+              <p><span className="font-mono text-brand-500 text-xs uppercase tracking-widest">code shape —</span> 6 chars, alphabet excludes <code className="font-mono text-ink">0 1 I O</code> to dodge ambiguity when read aloud or hand-typed.</p>
+              <p><span className="font-mono text-brand-500 text-xs uppercase tracking-widest">join input —</span> 6 segmented mono tiles; auto-advance, backspace-back, paste-spread, arrow-key nav. Same UX as the score-pick tile.</p>
+              <p><span className="font-mono text-brand-500 text-xs uppercase tracking-widest">create flow —</span> the join code is generated client-side and previewed before submit, so the user sees the artifact they'll be sharing.</p>
+              <p><span className="font-mono text-brand-500 text-xs uppercase tracking-widest">try it —</span> on the Join screen, tap the <code className="font-mono text-ink">WC26GB</code> hint to auto-fill a real demo league. Anything else returns a friendly error.</p>
+            </div>
+
+            <div className="border-t border-line pt-5">
+              <div className="font-mono text-eyebrow uppercase text-ink-muted tracking-widest mb-2">RN parity</div>
+              <ul className="text-sm text-ink-muted space-y-1 font-mono">
+                <li><code className="text-ink">Input</code> · <span className="text-ink-dim">name field, code tiles (size="score")</span></li>
+                <li><code className="text-ink">Button</code> · <span className="text-ink-dim">primary + secondary</span></li>
+                <li><code className="text-ink">Screen</code> · <span className="text-ink-dim">no footer, scroll=false</span></li>
+                <li><code className="text-ink">Card</code> · <span className="text-ink-dim">success state, code reveal</span></li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      );
+    };
+
+    // We need the phone to drive its own internal route AND respect the external jump.
+    // Cleanest: hoist route into App and pass it down.
+    function Phone({ route, setRoute }) {
+      const [league, setLeague] = useState(null);
+      const [isCreator, setIsCreator] = useState(false);
+
+      // Demo data so 04 Success looks alive when jumped to directly.
+      useEffect(() => {
+        if (route === FLOW.SUCCESS && !league) {
+          setLeague({ name: 'Campeones', code: 'WC26GB', members: 15, created: 'Apr 12' });
+          setIsCreator(false);
+        }
+      }, [route, league]);
+
+      let body = null;
+      if (route === FLOW.CHOOSER) {
+        body = <ChooserScreen
+          onCreate={() => setRoute(FLOW.CREATE)}
+          onJoin={()   => setRoute(FLOW.JOIN)} />;
+      } else if (route === FLOW.CREATE) {
+        body = <CreateScreen
+          onBack={() => setRoute(FLOW.CHOOSER)}
+          onCreate={(l) => { setLeague(l); setIsCreator(true); setRoute(FLOW.SUCCESS); }} />;
+      } else if (route === FLOW.JOIN) {
+        body = <JoinScreen
+          onBack={() => setRoute(FLOW.CHOOSER)}
+          onJoin={(l) => { setLeague(l); setIsCreator(false); setRoute(FLOW.SUCCESS); }} />;
+      } else if (route === FLOW.SUCCESS && league) {
+        body = <SuccessScreen
+          league={league}
+          isCreator={isCreator}
+          onContinue={() => { /* would route to /today */ }}
+          onReset={() => { setLeague(null); setIsCreator(false); setRoute(FLOW.CHOOSER); }} />;
+      }
+      return body;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
