@@ -384,6 +384,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/leagues/{leagueId}/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get league leaderboard */
+        get: operations["getLeagueLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tournaments/{tournamentId}/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get global tournament leaderboard */
+        get: operations["getTournamentLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -494,12 +528,47 @@ export interface components {
          *       "code": "ABCD1234",
          *       "created_at": "2025-01-01T00:00:00Z",
          *       "updated_at": "2025-01-01T00:00:00Z",
-         *       "member_count": 3
+         *       "member_count": 3,
+         *       "my_position": 1
          *     }
          */
         LeagueListItem: components["schemas"]["League"] & {
             /** @description Total number of members in this league. */
             member_count: number;
+            /** @description Requesting user's DENSE_RANK position in this league. Equals 1 when all members are tied at 0. */
+            my_position: number;
+        };
+        /**
+         * @example {
+         *       "position": 1,
+         *       "user_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "display_name": "John Doe",
+         *       "score_points": 10,
+         *       "player_points": 5,
+         *       "team_points": 3,
+         *       "total_points": 18
+         *     }
+         */
+        LeaderboardEntry: {
+            /** @description DENSE_RANK position (1-based; ties share position). */
+            position: number;
+            /** Format: uuid */
+            user_id: string;
+            display_name: string;
+            /** @description Points from score predictions. */
+            score_points: number;
+            /** @description Points from player predictions. */
+            player_points: number;
+            /** @description Points from team predictions. */
+            team_points: number;
+            /** @description Sum of the three category totals. */
+            total_points: number;
+        };
+        LeagueLeaderboardResponse: {
+            leaderboard: components["schemas"]["LeaderboardEntry"][];
+        };
+        TournamentLeaderboardResponse: {
+            leaderboard: components["schemas"]["LeaderboardEntry"][];
         };
         /**
          * @example {
@@ -2513,6 +2582,131 @@ export interface operations {
                 };
                 content: {
                     "text/html": string;
+                };
+            };
+        };
+    };
+    getLeagueLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                leagueId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description League leaderboard */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueLeaderboardResponse"];
+                };
+            };
+            /** @description Invalid leagueId */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden (not a member) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description League not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getTournamentLeaderboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tournamentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tournament leaderboard */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentLeaderboardResponse"];
+                };
+            };
+            /** @description Invalid tournamentId */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Tournament not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

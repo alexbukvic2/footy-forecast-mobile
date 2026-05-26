@@ -1,7 +1,7 @@
-import { View, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Trophy, Target, type LucideIcon } from 'lucide-react-native';
 import { Text } from '@/components/ui';
+import { Target, Trophy, User, type LucideIcon } from 'lucide-react-native';
+import { Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface TabSpec {
   /** Matches the route name in `app/(tabs)/<id>.tsx`. */
@@ -11,9 +11,9 @@ export interface TabSpec {
 }
 
 export const TABS: TabSpec[] = [
-  { id: 'leagues', label: 'Leagues', Icon: Trophy },
-  { id: 'predict', label: 'Predict',  Icon: Target },
-  { id: 'profile', label: 'Profile',  Icon: User   },
+  { id: 'leagues', label: 'League',  Icon: Trophy },
+  { id: 'predict', label: 'Predict', Icon: Target },
+  { id: 'profile', label: 'Profile', Icon: User   },
 ];
 
 export interface TabBarProps {
