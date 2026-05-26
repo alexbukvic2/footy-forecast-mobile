@@ -4,6 +4,7 @@ import { DialPicker } from '@/components/DialPicker';
 import { OutrightsTab } from '@/components/OutrightsTab';
 import { Text } from '@/components/ui';
 import { useFixtures, useUpsertPrediction } from '@/hooks/useFixtures';
+import { useOutrightsComplete } from '@/hooks/useOutrights';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -67,14 +68,23 @@ function WarmTopGlow() {
 function SegmentedControl({
   value,
   onChange,
+  matchesComplete,
+  outrightsComplete,
 }: {
   value: Tab;
   onChange: (t: Tab) => void;
+  matchesComplete: boolean;
+  outrightsComplete: boolean;
 }) {
+  const completionMap: Record<Tab, boolean> = {
+    matches: matchesComplete,
+    outrights: outrightsComplete,
+  };
   return (
     <View className="mx-5 mt-5 flex-row rounded-pill bg-surface-raised border border-line p-1">
       {(['matches', 'outrights'] as const).map((tab) => {
         const active = tab === value;
+        const complete = completionMap[tab];
         return (
           <Pressable
             key={tab}
@@ -84,12 +94,30 @@ function SegmentedControl({
             className="flex-1 items-center justify-center py-2 rounded-pill"
             style={active ? { backgroundColor: 'rgba(216,107,61,0.18)' } : undefined}
           >
-            <Text
-              className="font-mono uppercase text-[11px] tracking-[0.16em]"
-              style={{ color: active ? '#D86B3D' : 'rgba(245,232,210,0.55)' }}
-            >
-              {tab}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text
+                className="font-mono uppercase text-[11px] tracking-[0.16em]"
+                style={{ color: active ? '#D86B3D' : 'rgba(245,232,210,0.55)' }}
+              >
+                {tab}
+              </Text>
+              <View
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 7,
+                  borderWidth: 1,
+                  borderColor: complete ? '#5AB468' : '#E8C030',
+                  backgroundColor: complete ? 'rgba(90,180,104,0.15)' : 'rgba(232,192,48,0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 8, color: complete ? '#5AB468' : '#E8C030', fontWeight: '700' }}>
+                  {complete ? '✓' : '!'}
+                </Text>
+              </View>
+            </View>
           </Pressable>
         );
       })}
@@ -308,6 +336,14 @@ export default function PredictScreen() {
 
   const [activeTab, setActiveTab] = useState<Tab>('matches');
 
+  const outrightsComplete = useOutrightsComplete();
+  const { data: fixtures } = useFixtures();
+  const matchesComplete = useMemo(() => {
+    if (!fixtures) return false;
+    const unlocked = fixtures.filter((f) => !f.prediction_locked);
+    return unlocked.length > 0 && unlocked.every((f) => f.prediction !== null);
+  }, [fixtures]);
+
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
@@ -317,7 +353,12 @@ export default function PredictScreen() {
         <Text variant="eyebrow">PREDICT</Text>
       </View>
 
-      <SegmentedControl value={activeTab} onChange={setActiveTab} />
+      <SegmentedControl
+        value={activeTab}
+        onChange={setActiveTab}
+        matchesComplete={matchesComplete}
+        outrightsComplete={outrightsComplete}
+      />
 
       {activeTab === 'matches' ? (
         <MatchesTab bottomPadding={tabBarClearance} />

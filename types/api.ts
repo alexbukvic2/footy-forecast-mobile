@@ -530,6 +530,7 @@ export interface components {
          *       "name": "Kylian Mbappe",
          *       "team_name": "France",
          *       "team_logo": "https://example.com/france.png",
+         *       "group": "C",
          *       "handicaps": {
          *         "group_top_scorer": 5,
          *         "total_top_scorer": 10
@@ -542,6 +543,8 @@ export interface components {
             name: string;
             team_name: string;
             team_logo: string;
+            /** @description Group letter of the player's team (e.g. "A"), or null if not applicable. */
+            group?: string | null;
             handicaps: {
                 [key: string]: number;
             };
@@ -1738,6 +1741,8 @@ export interface operations {
                 q?: string;
                 /** @description Filter results to players whose team is in this group (e.g. "A"). Omit to search all groups. */
                 group?: string;
+                /** @description When true, only return players that have at least one handicap row. */
+                hasHandicap?: boolean;
             };
             header?: never;
             path: {

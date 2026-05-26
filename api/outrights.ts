@@ -59,3 +59,10 @@ export async function searchPlayers(tournamentId: string, q: string, group?: str
   );
   return data.players;
 }
+
+export async function listHandicapPlayers(tournamentId: string): Promise<Player[]> {
+  const data = await apiFetch<components['schemas']['PlayerListResponse']>(
+    `/tournaments/${tournamentId}/players/search?hasHandicap=true`,
+  );
+  return data.players;
+}

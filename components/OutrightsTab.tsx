@@ -1,10 +1,12 @@
 import { ApiError } from '@/api/client';
-import type { BulkPlayerPredictionItem, BulkTeamPredictionItem, TeamWithHandicaps } from '@/api/outrights';
+import type { BulkPlayerPredictionItem, BulkTeamPredictionItem, Player, TeamWithHandicaps } from '@/api/outrights';
 import { SearchableSelect, type SelectItem } from '@/components/SearchableSelect';
 import { Text } from '@/components/ui';
 import {
     useBulkUpsertPlayerPredictions,
     useBulkUpsertTeamPredictions,
+    useHandicapPlayers,
+    useOutrightsComplete,
     usePlayerPredictions,
     useSearchPlayers,
     useTeamPredictions,
@@ -225,6 +227,7 @@ interface PlayerSearchSelectProps {
   placeholder?: string;
   disabled?: boolean;
   group?: string;
+  preloadedPlayers?: Player[];
 }
 
 function PlayerSearchSelect({
@@ -234,6 +237,7 @@ function PlayerSearchSelect({
   placeholder = 'Search player…',
   disabled = false,
   group,
+  preloadedPlayers = [],
 }: PlayerSearchSelectProps) {
   const [searchText, setSearchText] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -249,18 +253,40 @@ function PlayerSearchSelect({
     }
   }, []);
 
-  const { data: players, isFetching } = useSearchPlayers(debouncedQ, group);
+  const { data: searchedPlayers, isFetching } = useSearchPlayers(debouncedQ, group);
 
-  const items = useMemo<SelectItem[]>(
-    () =>
-      (players ?? []).map((p) => ({
-        id: p.id,
-        label: p.name,
-        subtitle: p.team_name,
-        points: p.handicaps[category] as number | undefined,
-      })),
-    [players, category],
-  );
+  const items = useMemo<SelectItem[]>(() => {
+    const lower = searchText.toLowerCase();
+
+    // Pre-loaded players filtered client-side by current search text
+    const matchedPreloaded = searchText.length > 0
+      ? preloadedPlayers.filter(
+          (p) => p.name.toLowerCase().includes(lower) || p.team_name.toLowerCase().includes(lower),
+        )
+      : preloadedPlayers;
+
+    // API search results not already covered by preloaded
+    const preloadedIds = new Set(preloadedPlayers.map((p) => p.id));
+    const extra = (searchedPlayers ?? []).filter((p) => !preloadedIds.has(p.id));
+
+    // Combine and convert to SelectItem
+    const combined: SelectItem[] = [...matchedPreloaded, ...extra].map((p) => ({
+      id: p.id,
+      label: p.name,
+      subtitle: p.team_name,
+      points: p.handicaps[category] as number | undefined,
+    }));
+
+    // Sort by handicap points ASC; players without points go last
+    combined.sort((a, b) => {
+      if (a.points === undefined && b.points === undefined) return 0;
+      if (a.points === undefined) return 1;
+      if (b.points === undefined) return -1;
+      return a.points - b.points;
+    });
+
+    return combined;
+  }, [searchText, preloadedPlayers, searchedPlayers, category]);
 
   return (
     <SearchableSelect
@@ -271,7 +297,7 @@ function PlayerSearchSelect({
       query={searchText}
       onQueryChange={handleQueryChange}
       isLoading={isFetching}
-      minSearchLength={2}
+      minSearchLength={0}
       disabled={disabled}
     />
   );
@@ -360,6 +386,7 @@ export function OutrightsTab({ bottomPadding }: OutrightsTabProps) {
     useTeamPredictions();
   const { data: playerPredsResponse, isPending: playerPredsPending, isError: playerPredsError } =
     usePlayerPredictions();
+  const { data: handicapPlayers, isPending: handicapPlayersPending } = useHandicapPlayers();
   const { mutate: upsertTeams } = useBulkUpsertTeamPredictions();
   const { mutate: upsertPlayers } = useBulkUpsertPlayerPredictions();
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -421,22 +448,7 @@ export function OutrightsTab({ bottomPadding }: OutrightsTabProps) {
     [teamPreds],
   );
 
-  const isComplete = useMemo(() => {
-    const groupCount = groups.length;
-    const groupWinners = teamPreds.filter((p) => p.category === 'group_winner' && p.team_id != null).length;
-    const groupTopScorers = playerPreds.filter((p) => p.category === 'group_top_scorer' && p.player_id != null).length;
-    const semifinalistCount = semifinalistPreds.filter((p) => p.team_id != null).length;
-    const hasTotalTopScorer = playerPreds.some((p) => p.category === 'total_top_scorer' && p.player_id != null);
-    const hasWinner = winnerPredEntry?.team_id != null;
-    return (
-      groupWinners === groupCount &&
-      totalKoPicks === 20 &&
-      groupTopScorers === groupCount &&
-      semifinalistCount === 4 &&
-      hasTotalTopScorer &&
-      hasWinner
-    );
-  }, [groups.length, teamPreds, playerPreds, semifinalistPreds, totalKoPicks, winnerPredEntry]);
+  const isComplete = useOutrightsComplete();
 
   // ── Error handler ───────────────────────────────────────────────────────────
 
@@ -572,7 +584,7 @@ export function OutrightsTab({ bottomPadding }: OutrightsTabProps) {
 
   // ── Render guards ───────────────────────────────────────────────────────────
 
-  if (teamsPending || teamPredsPending || playerPredsPending) {
+  if (teamsPending || teamPredsPending || playerPredsPending || handicapPlayersPending) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color="rgba(216,107,61,0.8)" />
@@ -737,6 +749,7 @@ export function OutrightsTab({ bottomPadding }: OutrightsTabProps) {
                 placeholder="Search player…"
                 disabled={locked}
                 group={group}
+                preloadedPlayers={(handicapPlayers ?? []).filter((p) => p.group === group)}
               />
             </View>
           </View>
@@ -783,6 +796,7 @@ export function OutrightsTab({ bottomPadding }: OutrightsTabProps) {
           onChange={handleTotalTopScorer}
           placeholder="Search player…"
           disabled={locked}
+          preloadedPlayers={handicapPlayers ?? []}
         />
       </View>
 
