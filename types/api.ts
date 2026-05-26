@@ -195,6 +195,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tournaments/{tournament_id}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all teams for a tournament with their handicaps */
+        get: operations["listTeams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/player-handicaps/{player_id}/{category}": {
         parameters: {
             query?: never;
@@ -212,40 +229,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/team-handicaps/{team_id}/{category}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get team handicap by category */
-        get: operations["getTeamHandicap"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/tournaments/{tournamentId}/predictions/players/{category}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Upsert player tournament prediction */
-        put: operations["upsertPlayerPrediction"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/tournaments/{tournamentId}/predictions/players": {
         parameters: {
             query?: never;
@@ -255,24 +238,8 @@ export interface paths {
         };
         /** List my player predictions for a tournament */
         get: operations["listMyPlayerPredictions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/tournaments/{tournamentId}/predictions/teams/{category}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Upsert team tournament prediction */
-        put: operations["upsertTeamPrediction"];
+        /** Bulk upsert player tournament predictions */
+        put: operations["bulkUpsertPlayerPredictions"];
         post?: never;
         delete?: never;
         options?: never;
@@ -289,7 +256,8 @@ export interface paths {
         };
         /** List my team predictions for a tournament */
         get: operations["listMyTeamPredictions"];
-        put?: never;
+        /** Bulk upsert team tournament predictions */
+        put: operations["bulkUpsertTeamPredictions"];
         post?: never;
         delete?: never;
         options?: never;
@@ -588,11 +556,42 @@ export interface components {
         };
         /**
          * @example {
+         *       "category": "winner",
          *       "points": 3
          *     }
          */
-        TeamHandicap: {
+        TeamHandicapItem: {
+            category: components["schemas"]["TeamHandicapCategory"];
             points: number;
+        };
+        /**
+         * @example {
+         *       "id": "550e8400-e29b-41d4-a716-446655440010",
+         *       "name": "France",
+         *       "logo": "https://example.com/france.png",
+         *       "group_letter": "A",
+         *       "handicaps": [
+         *         {
+         *           "category": "winner",
+         *           "points": 20
+         *         },
+         *         {
+         *           "category": "semifinalist",
+         *           "points": 10
+         *         }
+         *       ]
+         *     }
+         */
+        TeamWithHandicaps: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            logo: string;
+            group_letter?: string | null;
+            handicaps: components["schemas"]["TeamHandicapItem"][];
+        };
+        TeamListResponse: {
+            teams: components["schemas"]["TeamWithHandicaps"][];
         };
         /**
          * @example group_top_scorer
@@ -661,69 +660,41 @@ export interface components {
         PlayerListResponse: {
             players: components["schemas"]["Player"][];
         };
-        /**
-         * @example {
-         *       "player_id": "550e8400-e29b-41d4-a716-446655440003"
-         *     }
-         */
-        UpsertPlayerPredictionRequest: {
-            /** Format: uuid */
-            player_id: string;
-        };
-        /**
-         * @example {
-         *       "team_id": "550e8400-e29b-41d4-a716-446655440004"
-         *     }
-         */
-        UpsertTeamPredictionRequest: {
-            /** Format: uuid */
-            team_id: string;
-        };
-        /**
-         * @example {
-         *       "id": "550e8400-e29b-41d4-a716-446655440010",
-         *       "tournament_id": "550e8400-e29b-41d4-a716-446655440000",
-         *       "category": "group_top_scorer",
-         *       "player_id": "550e8400-e29b-41d4-a716-446655440003",
-         *       "player_name": "Lionel Messi",
-         *       "points": null
-         *     }
-         */
-        PlayerPredictionResponse: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tournament_id: string;
+        BulkPlayerPredictionItem: {
             category: components["schemas"]["PlayerHandicapCategory"];
-            /** Format: uuid */
-            player_id: string;
-            player_name: string;
-            points?: number | null;
+            group_letter?: string | null;
+            /**
+             * Format: uuid
+             * @description null clears the slot
+             */
+            player_id?: string | null;
         };
-        /**
-         * @example {
-         *       "id": "550e8400-e29b-41d4-a716-446655440011",
-         *       "tournament_id": "550e8400-e29b-41d4-a716-446655440000",
-         *       "category": "winner",
-         *       "team_id": "550e8400-e29b-41d4-a716-446655440004",
-         *       "team_name": "Argentina",
-         *       "points": null
-         *     }
-         */
-        TeamPredictionResponse: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tournament_id: string;
+        BulkUpsertPlayerPredictionsRequest: components["schemas"]["BulkPlayerPredictionItem"][];
+        BulkTeamPredictionItem: {
             category: components["schemas"]["TeamHandicapCategory"];
-            /** Format: uuid */
-            team_id: string;
-            team_name: string;
-            points?: number | null;
+            group_letter?: string | null;
+            slot_index: number;
+            /**
+             * Format: uuid
+             * @description null clears the slot
+             */
+            team_id?: string | null;
+        };
+        BulkUpsertTeamPredictionsRequest: components["schemas"]["BulkTeamPredictionItem"][];
+        PlayerPredictionsListResponse: {
+            /** @description Whether predictions are locked (first kickoff is within 30 minutes or has passed). */
+            locked: boolean;
+            predictions: components["schemas"]["PlayerPredictionView"][];
+        };
+        TeamPredictionsListResponse: {
+            /** @description Whether predictions are locked (first kickoff is within 30 minutes or has passed). */
+            locked: boolean;
+            predictions: components["schemas"]["TeamPredictionView"][];
         };
         /**
          * @example {
          *       "category": "group_top_scorer",
+         *       "group": "A",
          *       "player_id": "550e8400-e29b-41d4-a716-446655440003",
          *       "player_name": "Lionel Messi",
          *       "points": null
@@ -731,6 +702,8 @@ export interface components {
          */
         PlayerPredictionView: {
             category: components["schemas"]["PlayerHandicapCategory"];
+            /** @description Group letter (e.g. "A"). Present only for group-scoped categories. */
+            group?: string;
             /** Format: uuid */
             player_id?: string | null;
             player_name?: string | null;
@@ -738,7 +711,8 @@ export interface components {
         };
         /**
          * @example {
-         *       "category": "winner",
+         *       "category": "group_winner",
+         *       "group": "A",
          *       "team_id": "550e8400-e29b-41d4-a716-446655440004",
          *       "team_name": "Argentina",
          *       "points": null
@@ -746,6 +720,8 @@ export interface components {
          */
         TeamPredictionView: {
             category: components["schemas"]["TeamHandicapCategory"];
+            /** @description Group letter (e.g. "A"). Present only for group-scoped categories. */
+            group?: string;
             /** Format: uuid */
             team_id?: string | null;
             team_name?: string | null;
@@ -790,6 +766,7 @@ export interface components {
         /**
          * @example {
          *       "category": "group_top_scorer",
+         *       "group": "A",
          *       "predictions": [
          *         {
          *           "user_id": "550e8400-e29b-41d4-a716-446655440002",
@@ -803,11 +780,14 @@ export interface components {
          */
         LeaguePlayerCategoryView: {
             category: components["schemas"]["PlayerHandicapCategory"];
+            /** @description Group letter (e.g. "A"). Present only for group-scoped categories. */
+            group?: string;
             predictions: components["schemas"]["LeagueMemberPlayerPick"][];
         };
         /**
          * @example {
-         *       "category": "winner",
+         *       "category": "group_winner",
+         *       "group": "A",
          *       "predictions": [
          *         {
          *           "user_id": "550e8400-e29b-41d4-a716-446655440002",
@@ -821,6 +801,8 @@ export interface components {
          */
         LeagueTeamCategoryView: {
             category: components["schemas"]["TeamHandicapCategory"];
+            /** @description Group letter (e.g. "A"). Present only for group-scoped categories. */
+            group?: string;
             predictions: components["schemas"]["LeagueMemberTeamPick"][];
         };
         /**
@@ -1754,6 +1736,8 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
+                /** @description Filter results to players whose team is in this group (e.g. "A"). Omit to search all groups. */
+                group?: string;
             };
             header?: never;
             path: {
@@ -1792,6 +1776,55 @@ export interface operations {
             };
             /** @description Tournament not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listTeams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tournament_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of teams with handicaps */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamListResponse"];
+                };
+            };
+            /** @description Invalid tournament ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1869,28 +1902,27 @@ export interface operations {
             };
         };
     };
-    getTeamHandicap: {
+    listMyPlayerPredictions: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                team_id: string;
-                category: components["schemas"]["TeamHandicapCategory"];
+                tournamentId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Team handicap */
+            /** @description Player predictions for all categories with lock status */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeamHandicap"];
+                    "application/json": components["schemas"]["PlayerPredictionsListResponse"];
                 };
             };
-            /** @description Invalid team ID or category */
+            /** @description Invalid tournament ID */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -1901,15 +1933,6 @@ export interface operations {
             };
             /** @description Unauthorized */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Handicap not found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1928,29 +1951,28 @@ export interface operations {
             };
         };
     };
-    upsertPlayerPrediction: {
+    bulkUpsertPlayerPredictions: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 tournamentId: string;
-                category: components["schemas"]["PlayerHandicapCategory"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpsertPlayerPredictionRequest"];
+                "application/json": components["schemas"]["BulkUpsertPlayerPredictionsRequest"];
             };
         };
         responses: {
-            /** @description Player prediction saved */
+            /** @description Current player predictions after applying the batch */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerPredictionResponse"];
+                    "application/json": components["schemas"]["PlayerPredictionView"][];
                 };
             };
             /** @description Invalid input */
@@ -2000,7 +2022,7 @@ export interface operations {
             };
         };
     };
-    listMyPlayerPredictions: {
+    listMyTeamPredictions: {
         parameters: {
             query?: never;
             header?: never;
@@ -2011,13 +2033,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Player predictions for all categories */
+            /** @description Team predictions for all categories with lock status */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerPredictionView"][];
+                    "application/json": components["schemas"]["TeamPredictionsListResponse"];
                 };
             };
             /** @description Invalid tournament ID */
@@ -2049,29 +2071,28 @@ export interface operations {
             };
         };
     };
-    upsertTeamPrediction: {
+    bulkUpsertTeamPredictions: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 tournamentId: string;
-                category: components["schemas"]["TeamHandicapCategory"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpsertTeamPredictionRequest"];
+                "application/json": components["schemas"]["BulkUpsertTeamPredictionsRequest"];
             };
         };
         responses: {
-            /** @description Team prediction saved */
+            /** @description Current team predictions after applying the batch */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeamPredictionResponse"];
+                    "application/json": components["schemas"]["TeamPredictionView"][];
                 };
             };
             /** @description Invalid input */
@@ -2092,7 +2113,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Predictions locked */
+            /** @description Predictions locked or wildcard cap exceeded */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2103,55 +2124,6 @@ export interface operations {
             };
             /** @description Team not found in this tournament */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    listMyTeamPredictions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                tournamentId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Team predictions for all categories */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TeamPredictionView"][];
-                };
-            };
-            /** @description Invalid tournament ID */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };

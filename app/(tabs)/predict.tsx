@@ -1,13 +1,14 @@
-import { useRef, useCallback, useMemo, useState } from 'react';
-import { View, SectionList, Pressable } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Text } from '@/components/ui';
-import { DialPicker } from '@/components/DialPicker';
-import { useFixtures, useUpsertPrediction } from '@/hooks/useFixtures';
 import { ApiError } from '@/api/client';
 import type { UserFixtureViewResponse } from '@/api/fixtures';
+import { DialPicker } from '@/components/DialPicker';
+import { OutrightsTab } from '@/components/OutrightsTab';
+import { Text } from '@/components/ui';
+import { useFixtures, useUpsertPrediction } from '@/hooks/useFixtures';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, SectionList, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -236,7 +237,7 @@ function MatchesTab({ bottomPadding }: MatchesTabProps) {
                     ...e,
                     [fixture.id]:
                       err instanceof ApiError && err.status === 403
-                        ? 'Locked — too close to kick-off'
+                        ? 'Locked. Too close to kick-off.'
                         : 'Failed to save, try again',
                   }));
                 },
@@ -299,26 +300,6 @@ function MatchesTab({ bottomPadding }: MatchesTabProps) {
   );
 }
 
-// ─── Outrights tab placeholder ────────────────────────────────────────────────
-
-function OutrightsTab() {
-  return (
-    <View className="flex-1 items-center justify-center px-6">
-      <View
-        className="w-full rounded-card items-center justify-center py-10 px-5"
-        style={{ borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(245,232,210,0.16)' }}
-      >
-        <Text variant="eyebrow" tone="dim" className="mb-2">
-          Coming soon
-        </Text>
-        <Text variant="body" tone="dim" align="center" className="leading-relaxed">
-          Outright predictions — champion, top scorer, and more — are on their way.
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function PredictScreen() {
@@ -341,7 +322,7 @@ export default function PredictScreen() {
       {activeTab === 'matches' ? (
         <MatchesTab bottomPadding={tabBarClearance} />
       ) : (
-        <OutrightsTab />
+        <OutrightsTab bottomPadding={tabBarClearance} />
       )}
     </SafeAreaView>
   );
