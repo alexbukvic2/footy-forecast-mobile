@@ -1,6 +1,6 @@
 import { View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Trophy, type LucideIcon } from 'lucide-react-native';
+import { User, Trophy, Target, type LucideIcon } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 
 export interface TabSpec {
@@ -12,7 +12,8 @@ export interface TabSpec {
 
 export const TABS: TabSpec[] = [
   { id: 'leagues', label: 'Leagues', Icon: Trophy },
-  { id: 'profile', label: 'Profile', Icon: User   },
+  { id: 'predict', label: 'Predict',  Icon: Target },
+  { id: 'profile', label: 'Profile',  Icon: User   },
 ];
 
 export interface TabBarProps {
