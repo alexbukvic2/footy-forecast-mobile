@@ -930,6 +930,7 @@ export interface components {
          *       "home_team_name": "Argentina",
          *       "away_team_name": "France",
          *       "round": "Group Stage - 1",
+         *       "group": "A",
          *       "kickoff_at": "2026-06-01T15:00:00Z",
          *       "status": "finished",
          *       "prediction_locked": true,
@@ -946,6 +947,8 @@ export interface components {
             home_team_name: string;
             away_team_name: string;
             round: string;
+            /** @description Group letter (e.g. "A"). Present only for group-stage fixtures, omitted for knockout. */
+            group?: string | null;
             /** Format: date-time */
             kickoff_at: string;
             /** @enum {string} */
@@ -2507,7 +2510,12 @@ export interface operations {
     };
     listLeagueScorePredictions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Number of days-with-fixtures to fetch. Required when `skip` is provided. */
+                n?: number;
+                /** @description Number of most-recent days-with-fixtures to skip before fetching `n` days. Requires `n`. */
+                skip?: number;
+            };
             header?: never;
             path: {
                 leagueId: string;
@@ -2525,7 +2533,7 @@ export interface operations {
                     "application/json": components["schemas"]["LeagueFixtureViewResponse"][];
                 };
             };
-            /** @description Invalid league ID */
+            /** @description Invalid parameters */
             400: {
                 headers: {
                     [name: string]: unknown;

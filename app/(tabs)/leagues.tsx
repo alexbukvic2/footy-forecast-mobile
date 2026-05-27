@@ -1,23 +1,30 @@
 import { ApiError } from '@/api/client';
 import { Button, Text } from '@/components/ui';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import type { LeaderboardEntry } from '@/hooks/useLeagues';
-import { useDeleteLeague, useLeagueLeaderboard, useLeagues, useLeaveLeague } from '@/hooks/useLeagues';
+import type { LeaderboardEntry, LeagueFixtureViewResponse } from '@/hooks/useLeagues';
+import {
+  useDeleteLeague,
+  useLeagueLeaderboard,
+  useLeagues,
+  useLeagueScorePredictions,
+  useLeaveLeague,
+} from '@/hooks/useLeagues';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronDown, Hash, LogOut, Plus, Share2, Trash2 } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, Hash, LogOut, Plus, Share2, Trash2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
+  SectionList,
   Share,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +42,11 @@ interface LeagueItem {
   code: string;
   isAdmin: boolean;
   members: number;
+}
+
+interface DaySection {
+  title: string;
+  data: LeagueFixtureViewResponse[];
 }
 
 // ─── Column config ────────────────────────────────────────────────────────────
@@ -61,6 +73,41 @@ function WarmTopGlow() {
       pointerEvents="none"
     />
   );
+}
+
+function formatDateLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatGoals(goals?: number | null): string {
+  return goals === null || goals === undefined ? '-' : String(goals);
+}
+
+function groupFixturesByDay(fixtures: LeagueFixtureViewResponse[]): DaySection[] {
+  const map = new Map<string, LeagueFixtureViewResponse[]>();
+
+  for (const fixture of fixtures) {
+    const key = formatDateLabel(fixture.kickoff_at);
+    const current = map.get(key);
+    if (current) {
+      current.push(fixture);
+    } else {
+      map.set(key, [fixture]);
+    }
+  }
+
+  return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
 }
 
 // ─── Confirm sheet ────────────────────────────────────────────────────────────
@@ -613,6 +660,223 @@ function LeaderboardTab({ leagueId, currentUserId }: { leagueId: string; current
   );
 }
 
+function DayHeader({ title }: { title: string }) {
+  return (
+    <View className="px-5 pt-6 pb-2 flex-row items-center gap-3">
+      <View className="flex-1 h-px bg-line" />
+      <Text className="font-mono uppercase text-[10px] tracking-[0.2em] text-ink-dim">
+        {title}
+      </Text>
+      <View className="flex-1 h-px bg-line" />
+    </View>
+  );
+}
+
+function LeagueFixtureCard({
+  fixture,
+  expanded,
+  onToggle,
+  currentUserId,
+}: {
+  fixture: LeagueFixtureViewResponse;
+  expanded: boolean;
+  onToggle: () => void;
+  currentUserId: string | undefined;
+}) {
+  const predictions = useMemo(
+    () => [...fixture.predictions].sort((a, b) => (b.points ?? -1) - (a.points ?? -1)),
+    [fixture.predictions],
+  );
+  const fixturePhase = fixture.group !== null && fixture.group !== undefined && fixture.group !== ''
+    ? `Group ${fixture.group}`
+    : fixture.round;
+
+  return (
+    <View className="mx-5 mb-3 rounded-card border border-line bg-surface/40 overflow-hidden">
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={`Toggle predictions for ${fixture.home_team_name} vs ${fixture.away_team_name}`}
+        className="px-4 pt-3 pb-4"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Text className="font-mono text-ink-muted text-[12px] tracking-[0.08em]">
+              {formatTime(fixture.kickoff_at)}
+            </Text>
+            <Text className="text-ink-dim text-[11px] mx-2">·</Text>
+            <Text className="text-ink-dim text-[11px]" numberOfLines={1}>
+              {fixturePhase}
+            </Text>
+          </View>
+          {expanded ? <ChevronUp size={16} color="rgba(245,232,210,0.6)" /> : <ChevronDown size={16} color="rgba(245,232,210,0.6)" />}
+        </View>
+
+        <View className="mt-3 flex-row items-center">
+          <View className="flex-1 items-end pr-3">
+            <Text variant="heading" numberOfLines={2} className="text-right text-[12px] leading-snug">
+              {fixture.home_team_name}
+            </Text>
+          </View>
+
+          <View className="w-[72px] flex-row items-center justify-center rounded-pill border border-line bg-surface-raised py-1">
+            <Text className="font-display font-bold text-ink text-[18px] leading-none">
+              {formatGoals(fixture.goals_home)}
+            </Text>
+            <Text className="text-ink-dim text-[12px] mx-2">:</Text>
+            <Text className="font-display font-bold text-ink text-[18px] leading-none">
+              {formatGoals(fixture.goals_away)}
+            </Text>
+          </View>
+
+          <View className="flex-1 items-start pl-3">
+            <Text variant="heading" numberOfLines={2} className="text-left text-[12px] leading-snug">
+              {fixture.away_team_name}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+
+      {expanded && (
+        <View className="border-t border-line px-4 pb-4 pt-3">
+          {predictions.length === 0 ? (
+            <Text tone="muted" className="text-[12px]">No predictions submitted.</Text>
+          ) : (
+            predictions.map((prediction) => {
+              const isMe = prediction.user_id === currentUserId;
+              return (
+              <View
+                key={prediction.user_id}
+                className="py-2.5 px-2 -mx-2 flex-row items-center border-b border-line/60 last:border-b-0 rounded-[10px]"
+                style={isMe ? { backgroundColor: 'rgba(216,107,61,0.10)' } : undefined}
+              >
+                <View className="flex-1 pr-2">
+                  <Text className="text-[13px]" style={isMe ? { color: '#F5E8D2', fontWeight: '600' } : undefined} numberOfLines={1}>
+                    {prediction.display_name}
+                  </Text>
+                </View>
+
+                <View className="w-[68px] items-center">
+                  <Text className="font-mono text-[12px]" style={isMe ? { color: '#F5E8D2' } : { color: 'rgba(245,232,210,0.55)' }}>
+                    {formatGoals(prediction.goals_home)}:{formatGoals(prediction.goals_away)}
+                  </Text>
+                </View>
+
+                <View className="w-[64px] items-end">
+                  <Text className="font-mono text-[12px] text-brand-500">
+                    {prediction.points ?? 0} pts
+                  </Text>
+                </View>
+              </View>
+            );
+            })
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MatchesTab({ leagueId, currentUserId }: { leagueId: string; currentUserId: string | undefined }) {
+  const {
+    data,
+    isPending,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useLeagueScorePredictions(leagueId);
+  const insets = useSafeAreaInsets();
+
+  const [expandedFixtureId, setExpandedFixtureId] = useState<string | null>(null);
+
+  const fixtures = useMemo(() => {
+    const items = data?.pages.flatMap((page) => page) ?? [];
+    return [...items].sort(
+      (a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime(),
+    );
+  }, [data]);
+
+  const listBottomPadding = insets.bottom + 112;
+
+  const sections = useMemo(() => groupFixturesByDay(fixtures), [fixtures]);
+
+  if (isPending) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color="#D86B3D" />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        <Text tone="muted">Failed to load matches.</Text>
+        <Pressable onPress={() => void refetch()} style={{ padding: 8 }}>
+          <Text tone="brand">Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <SectionList
+      sections={sections}
+      keyExtractor={(item) => item.id}
+      showsVerticalScrollIndicator={false}
+      stickySectionHeadersEnabled={false}
+      contentContainerStyle={{ paddingBottom: listBottomPadding }}
+      ListHeaderComponent={
+        fixtures.length > 0 ? (
+          <View className="px-5 pt-1 pb-2">
+            <Pressable
+              onPress={() => void fetchNextPage()}
+              disabled={!hasNextPage || isFetchingNextPage}
+              className="h-11 rounded-pill border border-line bg-surface-raised items-center justify-center"
+              style={!hasNextPage ? { opacity: 0.45 } : undefined}
+              accessibilityRole="button"
+              accessibilityLabel="Show more matches"
+            >
+              {isFetchingNextPage ? (
+                <ActivityIndicator color="#D86B3D" />
+              ) : (
+                <Text className="font-mono uppercase text-[11px] tracking-[0.18em]" tone="brand">
+                  {hasNextPage ? 'Show more' : 'No older matches'}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        ) : null
+      }
+      ListEmptyComponent={
+        <View className="flex-1 items-center justify-center px-6 py-16">
+          <View
+            className="w-full rounded-card items-center justify-center py-10 px-5"
+            style={{ borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(245,232,210,0.16)' }}
+          >
+            <Text variant="body" tone="dim" align="center" className="leading-relaxed">
+              No locked fixtures yet.
+            </Text>
+          </View>
+        </View>
+      }
+      renderSectionHeader={({ section }) => <DayHeader title={section.title} />}
+      renderItem={({ item }) => (
+        <LeagueFixtureCard
+          fixture={item}
+          expanded={expandedFixtureId === item.id}
+          currentUserId={currentUserId}
+          onToggle={() =>
+            setExpandedFixtureId((prev) => (prev === item.id ? null : item.id))
+          }
+        />
+      )}
+    />
+  );
+}
+
 function PlaceholderTab({ label }: { label: string }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -712,7 +976,9 @@ export default function LeagueScreen() {
         {activeTab === 'leaderboard' && resolvedLeagueId !== '' && (
           <LeaderboardTab leagueId={resolvedLeagueId} currentUserId={currentUser?.id} />
         )}
-        {activeTab === 'matches' && <PlaceholderTab label="Matches" />}
+        {activeTab === 'matches' && resolvedLeagueId !== '' && (
+          <MatchesTab leagueId={resolvedLeagueId} currentUserId={currentUser?.id} />
+        )}
         {activeTab === 'outrights' && <PlaceholderTab label="Outrights" />}
       </View>
 

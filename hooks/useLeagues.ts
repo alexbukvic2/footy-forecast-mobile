@@ -1,6 +1,16 @@
-import { createLeague, deleteLeague, getLeague, getLeagueLeaderboard, joinLeague, leaveLeague, listLeagues } from '@/api/leagues';
+import {
+  createLeague,
+  deleteLeague,
+  getLeague,
+  getLeagueLeaderboard,
+  getLeagueScorePredictions,
+  joinLeague,
+  leaveLeague,
+  listLeagues,
+  type LeagueFixtureViewResponse,
+} from '@/api/leagues';
 import type { components } from '@/types/api';
-import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type UseQueryOptions } from '@tanstack/react-query';
 
 type LeagueListItem = components['schemas']['LeagueListItem'];
 type LeagueDetail = components['schemas']['LeagueDetail'];
@@ -78,5 +88,36 @@ export function useLeagueLeaderboard(leagueId: string) {
   });
 }
 
-export type { LeaderboardEntry, LeagueDetail, LeagueListItem };
+interface LeaguePredictionsPageParam {
+  n: number;
+  skip: number;
+}
+
+export function useLeagueScorePredictions(leagueId: string) {
+  return useInfiniteQuery<
+    LeagueFixtureViewResponse[],
+    Error,
+    InfiniteData<LeagueFixtureViewResponse[]>,
+    ['leagues', string, 'predictions'],
+    LeaguePredictionsPageParam
+  >({
+    queryKey: ['leagues', leagueId, 'predictions'],
+    enabled: leagueId !== '',
+    initialPageParam: { n: 2, skip: 0 },
+    queryFn: ({ pageParam }) =>
+      getLeagueScorePredictions(leagueId, { n: pageParam.n, skip: pageParam.skip }),
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (lastPage.length === 0) {
+        return undefined;
+      }
+
+      return {
+        n: 1,
+        skip: lastPageParam.skip + lastPageParam.n,
+      };
+    },
+  });
+}
+
+export type { LeaderboardEntry, LeagueDetail, LeagueFixtureViewResponse, LeagueListItem };
 
