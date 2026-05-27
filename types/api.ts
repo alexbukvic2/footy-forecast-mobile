@@ -538,15 +538,37 @@ export interface components {
             /** @description Requesting user's DENSE_RANK position in this league. Equals 1 when all members are tied at 0. */
             my_position: number;
         };
+        LeaderboardPointsBreakdown: {
+            /** @description Points from score predictions. */
+            score_pts: number;
+            /** @description Points from group top scorer player predictions. */
+            group_top_scorer_pts: number;
+            /** @description Points from total top scorer player predictions. */
+            total_top_scorer_pts: number;
+            /** @description Points from group winner team predictions. */
+            group_winner_pts: number;
+            /** @description Points from playoff team predictions. */
+            playoff_pts: number;
+            /** @description Points from semifinalist team predictions. */
+            semifinalist_pts: number;
+            /** @description Points from tournament winner team predictions. */
+            winner_pts: number;
+        };
         /**
          * @example {
          *       "position": 1,
          *       "user_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "display_name": "John Doe",
-         *       "score_points": 10,
-         *       "player_points": 5,
-         *       "team_points": 3,
-         *       "total_points": 18
+         *       "total_points": 32,
+         *       "points_breakdown": {
+         *         "score_pts": 10,
+         *         "group_top_scorer_pts": 3,
+         *         "total_top_scorer_pts": 5,
+         *         "group_winner_pts": 2,
+         *         "playoff_pts": 4,
+         *         "semifinalist_pts": 2,
+         *         "winner_pts": 6
+         *       }
          *     }
          */
         LeaderboardEntry: {
@@ -555,14 +577,9 @@ export interface components {
             /** Format: uuid */
             user_id: string;
             display_name: string;
-            /** @description Points from score predictions. */
-            score_points: number;
-            /** @description Points from player predictions. */
-            player_points: number;
-            /** @description Points from team predictions. */
-            team_points: number;
-            /** @description Sum of the three category totals. */
+            /** @description Sum of all category point totals. */
             total_points: number;
+            points_breakdown: components["schemas"]["LeaderboardPointsBreakdown"];
         };
         LeagueLeaderboardResponse: {
             leaderboard: components["schemas"]["LeaderboardEntry"][];

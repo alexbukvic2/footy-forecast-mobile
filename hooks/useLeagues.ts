@@ -1,9 +1,10 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { createLeague, deleteLeague, getLeague, getLeagueLeaderboard, joinLeague, leaveLeague, listLeagues } from '@/api/leagues';
 import type { components } from '@/types/api';
-import { listLeagues, createLeague, joinLeague, getLeague, deleteLeague, leaveLeague } from '@/api/leagues';
+import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
 
 type LeagueListItem = components['schemas']['LeagueListItem'];
 type LeagueDetail = components['schemas']['LeagueDetail'];
+type LeaderboardEntry = components['schemas']['LeaderboardEntry'];
 
 export function useLeagues(options?: Pick<UseQueryOptions<LeagueListItem[]>, 'enabled'>) {
   return useQuery({
@@ -69,4 +70,13 @@ export function useLeagueDetail(id: string) {
   });
 }
 
-export type { LeagueListItem, LeagueDetail };
+export function useLeagueLeaderboard(leagueId: string) {
+  return useQuery({
+    queryKey: ['leagues', leagueId, 'leaderboard'],
+    queryFn: () => getLeagueLeaderboard(leagueId),
+    enabled: leagueId !== '',
+  });
+}
+
+export type { LeaderboardEntry, LeagueDetail, LeagueListItem };
+
