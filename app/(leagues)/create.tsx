@@ -291,7 +291,7 @@ export default function CreateScreen() {
             {"Give it a\nname."}
           </Text>
           <Text className="mt-3 text-[14px] leading-relaxed text-ink-muted max-w-[300px]">
-            Something your friends will recognize. You can rename it later.
+            Something your friends will recognize. You cannot rename it later.
           </Text>
 
           {/* Tournament picker */}
