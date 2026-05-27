@@ -1,30 +1,55 @@
-import { useMemo, useState } from 'react';
-import { View, ScrollView, Modal, Pressable, Share } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
+import { ApiError } from '@/api/client';
+import { Button, Text } from '@/components/ui';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import type { LeaderboardEntry } from '@/hooks/useLeagues';
+import { useDeleteLeague, useLeagueLeaderboard, useLeagues, useLeaveLeague } from '@/hooks/useLeagues';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ChevronUp, ChevronDown, Trash2, Share2, LogOut } from 'lucide-react-native';
-import { Text, Button } from '@/components/ui';
-import { useLeagues, useDeleteLeague, useLeaveLeague } from '@/hooks/useLeagues';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { ApiError } from '@/api/client';
+import { StatusBar } from 'expo-status-bar';
+import { ChevronDown, Hash, LogOut, Plus, Share2, Trash2 } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  Share,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface LeagueMembership {
+type LeagueTab = 'leaderboard' | 'matches' | 'outrights';
+
+interface ColumnDef {
+  key: keyof LeaderboardEntry['points_breakdown'];
+  label: string;
+  legend: string;
+}
+
+interface LeagueItem {
   id: string;
   name: string;
   code: string;
-  members: number;
-  /** 1-indexed league position. 0 = not yet available. */
-  position: number;
-  /** Positive = climbed, negative = dropped, 0 = held / unknown. */
-  change: number;
   isAdmin: boolean;
+  members: number;
 }
 
-// ─── Brand atoms ─────────────────────────────────────────────────────────────
+// ─── Column config ────────────────────────────────────────────────────────────
+
+const BREAKDOWN_COLUMNS: ColumnDef[] = [
+  { key: 'score_pts',           label: 'M',  legend: 'match scores' },
+  { key: 'group_top_scorer_pts',label: 'GS', legend: 'group top scorer' },
+  { key: 'group_winner_pts',    label: 'GW', legend: 'group winner' },
+  { key: 'playoff_pts',         label: 'KO', legend: 'through to playoff' },
+  { key: 'semifinalist_pts',    label: 'SF', legend: 'semifinalists' },
+  { key: 'total_top_scorer_pts',label: 'GB', legend: 'golden boot' },
+  { key: 'winner_pts',          label: 'CH', legend: 'champion' },
+];
+
+// ─── Brand atoms ──────────────────────────────────────────────────────────────
 
 function WarmTopGlow() {
   return (
@@ -32,140 +57,13 @@ function WarmTopGlow() {
       colors={['rgba(216,107,61,0.18)', 'rgba(216,107,61,0)']}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
-      style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 420 }}
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 380 }}
       pointerEvents="none"
     />
   );
 }
 
-// ─── Row pieces ──────────────────────────────────────────────────────────────
-
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0] ?? 'th');
-}
-
-function AdminTag() {
-  return (
-    <View className="h-5 px-1.5 rounded bg-brand-soft border border-brand-500/30 items-center justify-center">
-      <Text className="font-mono uppercase text-brand-500 text-[9px] tracking-[0.18em]">
-        admin
-      </Text>
-    </View>
-  );
-}
-
-function TrendChip({ change }: { change: number }) {
-  if (change > 0) {
-    return (
-      <View className="flex-row items-center gap-1">
-        <ChevronUp size={12} color="#7FB069" strokeWidth={3} />
-        <Text className="font-mono text-success text-[11px]">{change}</Text>
-      </View>
-    );
-  }
-  if (change < 0) {
-    return (
-      <View className="flex-row items-center gap-1">
-        <ChevronDown size={12} color="#D84A4A" strokeWidth={3} />
-        <Text className="font-mono text-danger text-[11px]">{Math.abs(change)}</Text>
-      </View>
-    );
-  }
-  return (
-    <View
-      accessibilityLabel="position unchanged"
-      style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#5E9CD8' }}
-    />
-  );
-}
-
-function IconButton({
-  label,
-  onPress,
-  children,
-}: {
-  label: string;
-  onPress: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      hitSlop={8}
-      className="w-9 h-9 rounded-pill border border-line items-center justify-center"
-    >
-      {children}
-    </Pressable>
-  );
-}
-
-function LeagueRow({
-  league,
-  onDeletePress,
-  onLeavePress,
-}: {
-  league: LeagueMembership;
-  onDeletePress: (l: LeagueMembership) => void;
-  onLeavePress: (l: LeagueMembership) => void;
-}) {
-  function handleShare() {
-    void Share.share({ message: league.code });
-  }
-
-  const mutedIcon = 'rgba(245,232,210,0.55)';
-
-  return (
-    <View className="rounded-card border border-line bg-surface/40 px-4 py-3.5 flex-row items-center gap-3">
-      <View className="flex-1">
-        <View className="flex-row items-center gap-2">
-          <Text variant="heading" numberOfLines={1} className="flex-shrink">
-            {league.name}
-          </Text>
-          {league.isAdmin && <AdminTag />}
-        </View>
-        <View className="mt-1 flex-row items-center gap-2.5">
-          {league.position > 0 ? (
-            <Text className="font-mono text-ink-muted text-[11px] tracking-[0.12em]">
-              {ordinal(league.position)}
-              <Text className="text-ink-dim">{` of ${league.members}`}</Text>
-            </Text>
-          ) : (
-            <Text className="font-mono text-ink-dim text-[11px]">
-              {`${league.members} member${league.members !== 1 ? 's' : ''}`}
-            </Text>
-          )}
-          <Text className="text-ink-dim text-[11px]">·</Text>
-          <TrendChip change={league.change} />
-          <Text className="text-ink-dim text-[11px]">·</Text>
-          <Text className="font-mono text-ink-dim text-[11px] tracking-[0.08em]">
-            {league.code}
-          </Text>
-        </View>
-      </View>
-
-      <View className="flex-row gap-2">
-        <IconButton label={`Share code for ${league.name}`} onPress={handleShare}>
-          <Share2 size={15} color={mutedIcon} strokeWidth={1.8} />
-        </IconButton>
-        {league.isAdmin ? (
-          <IconButton label={`Delete ${league.name}`} onPress={() => onDeletePress(league)}>
-            <Trash2 size={15} color={mutedIcon} strokeWidth={1.8} />
-          </IconButton>
-        ) : (
-          <IconButton label={`Leave ${league.name}`} onPress={() => onLeavePress(league)}>
-            <LogOut size={15} color={mutedIcon} strokeWidth={1.8} />
-          </IconButton>
-        )}
-      </View>
-    </View>
-  );
-}
-
-// ─── Confirm sheets ───────────────────────────────────────────────────────────
+// ─── Confirm sheet ────────────────────────────────────────────────────────────
 
 function ConfirmSheet({
   visible,
@@ -236,53 +134,523 @@ function ConfirmSheet({
   );
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
+// ─── League picker ────────────────────────────────────────────────────────────
 
-function EmptyState() {
+interface LeaguePickerProps {
+  selectedId: string;
+  onSelect: (id: string) => void;
+  leagues: LeagueItem[];
+  onDeleteRequest: (league: LeagueItem) => void;
+  onLeaveRequest: (league: LeagueItem) => void;
+}
+
+function LeaguePicker({ selectedId, onSelect, leagues, onDeleteRequest, onLeaveRequest }: LeaguePickerProps) {
+  const [open, setOpen] = useState(false);
+  const selected = leagues.find((l) => l.id === selectedId);
+
+  const mutedIcon = 'rgba(245,232,210,0.55)';
+
+  function handleShare(code: string, name: string) {
+    void Share.share({ message: `Join my league "${name}" with code: ${code}` });
+  }
+
   return (
-    <View className="flex-1 items-center justify-center px-6">
-      <View
-        className="w-full rounded-card items-center justify-center py-10 px-5"
-        style={{ borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(245,232,210,0.16)' }}
+    <>
+      <Pressable
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Select league"
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: 'rgba(245,232,210,0.12)',
+          backgroundColor: 'rgba(245,232,210,0.06)',
+          alignSelf: 'flex-start',
+          maxWidth: '100%',
+        }}
       >
-        <Text variant="body" tone="dim" align="center" className="leading-relaxed">
-          {"Nothing here. Start one, or jump into a friend's pool."}
+        <Text
+          numberOfLines={1}
+          style={{ fontSize: 14, color: '#F5E8D2', fontWeight: '600', flexShrink: 1 }}
+        >
+          {selected?.name ?? 'Select league'}
         </Text>
-      </View>
+        <ChevronDown size={14} color="rgba(245,232,210,0.55)" />
+      </Pressable>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
+          onPress={() => setOpen(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: '#231B17',
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
+              paddingTop: 12,
+              paddingBottom: 32,
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <View
+              style={{
+                width: 36,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: 'rgba(245,232,210,0.15)',
+                alignSelf: 'center',
+                marginBottom: 16,
+              }}
+            />
+            <Text variant="eyebrow" style={{ marginHorizontal: 20, marginBottom: 12 }}>
+              Your Leagues
+            </Text>
+
+            {/* League rows */}
+            {leagues.map((l) => {
+              const active = l.id === selectedId;
+              return (
+                <View
+                  key={l.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingLeft: 20,
+                    paddingRight: 8,
+                    paddingVertical: 6,
+                    backgroundColor: active ? 'rgba(216,107,61,0.10)' : 'transparent',
+                  }}
+                >
+                  {/* Name — tap to select */}
+                  <Pressable
+                    onPress={() => { onSelect(l.id); setOpen(false); }}
+                    style={{ flex: 1, paddingVertical: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${l.name}`}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={{
+                        fontSize: 15,
+                        color: active ? '#D86B3D' : '#F5E8D2',
+                        fontWeight: active ? '600' : '400',
+                      }}
+                    >
+                      {l.name}
+                    </Text>
+                  </Pressable>
+
+                  {/* Share */}
+                  <Pressable
+                    onPress={() => handleShare(l.code, l.name)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Share code for ${l.name}`}
+                    hitSlop={8}
+                    style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Share2 size={15} color={mutedIcon} strokeWidth={1.8} />
+                  </Pressable>
+
+                  {/* Delete (admin) or Leave (member) */}
+                  {l.isAdmin ? (
+                    <Pressable
+                      onPress={() => { setOpen(false); onDeleteRequest(l); }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete ${l.name}`}
+                      hitSlop={8}
+                      style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Trash2 size={15} color={mutedIcon} strokeWidth={1.8} />
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={() => { setOpen(false); onLeaveRequest(l); }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Leave ${l.name}`}
+                      hitSlop={8}
+                      style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <LogOut size={15} color={mutedIcon} strokeWidth={1.8} />
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+
+            {/* Divider */}
+            <View
+              style={{
+                height: 1,
+                backgroundColor: 'rgba(245,232,210,0.07)',
+                marginHorizontal: 20,
+                marginTop: 8,
+                marginBottom: 4,
+              }}
+            />
+
+            {/* Join / Create */}
+            <Pressable
+              onPress={() => { setOpen(false); router.push('/(leagues)/join'); }}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 13, gap: 12 }}
+            >
+              <Hash size={16} color={mutedIcon} strokeWidth={1.8} />
+              <Text style={{ fontSize: 15, color: 'rgba(245,232,210,0.85)' }}>Join with code</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => { setOpen(false); router.push('/(leagues)/create'); }}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 13, gap: 12 }}
+            >
+              <Plus size={16} color={mutedIcon} strokeWidth={1.8} />
+              <Text style={{ fontSize: 15, color: 'rgba(245,232,210,0.85)' }}>Create new league</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
+// ─── Segmented control ────────────────────────────────────────────────────────
+
+function SegmentedControl({
+  value,
+  onChange,
+}: {
+  value: LeagueTab;
+  onChange: (t: LeagueTab) => void;
+}) {
+  const tabs: { id: LeagueTab; label: string }[] = [
+    { id: 'leaderboard', label: 'Leaderboard' },
+    { id: 'matches',     label: 'Matches' },
+    { id: 'outrights',   label: 'Outrights' },
+  ];
+
+  return (
+    <View className="mx-5 mt-4 flex-row rounded-pill bg-surface-raised border border-line p-1">
+      {tabs.map(({ id, label }) => {
+        const active = id === value;
+        return (
+          <Pressable
+            key={id}
+            onPress={() => onChange(id)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            className="flex-1 items-center justify-center py-2 rounded-pill"
+            style={active ? { backgroundColor: 'rgba(216,107,61,0.18)' } : undefined}
+          >
+            <Text
+              className="font-mono uppercase text-[11px] tracking-[0.16em]"
+              style={{ color: active ? '#D86B3D' : 'rgba(245,232,210,0.55)' }}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ─── Leaderboard table ────────────────────────────────────────────────────────
 
-export default function LeaguesScreen() {
-  const insets = useSafeAreaInsets();
-  const tabBarClearance = Math.max(insets.bottom, 12) + 64 + 12;
+function LeaderboardTable({
+  entries,
+  currentUserId,
+}: {
+  entries: LeaderboardEntry[];
+  currentUserId: string | undefined;
+}) {
+  const { width: screenWidth } = useWindowDimensions();
 
-  const [pendingDelete, setPendingDelete] = useState<LeagueMembership | null>(null);
+  const visibleColumns = useMemo<ColumnDef[]>(() => {
+    return BREAKDOWN_COLUMNS.filter((col) =>
+      entries.some((e) => (e.points_breakdown[col.key] ?? 0) > 0),
+    );
+  }, [entries]);
+
+  const legendItems = useMemo(() => {
+    const shown = [...visibleColumns, { label: 'PTS', legend: 'total points' }];
+    return shown;
+  }, [visibleColumns]);
+
+  const RANK_W = 20;
+  const STAT_W = 22;
+  const PTS_W = 34;
+  const GRID_GAP = 4;
+  const headerBg = 'rgba(245,232,210,0.05)';
+  const divider = 'rgba(245,232,210,0.07)';
+
+  const tableWidth = Math.max(280, screenWidth - 40);
+  const columnCount = 3 + visibleColumns.length; // rank + player + dynamic + pts
+  const horizontalPadding = 10;
+  const reservedWidth =
+    RANK_W +
+    PTS_W +
+    visibleColumns.length * STAT_W +
+    (columnCount - 1) * GRID_GAP +
+    horizontalPadding * 2;
+  const NAME_W = Math.max(68, tableWidth - reservedWidth);
+
+  return (
+    <View style={{ flex: 1, marginHorizontal: 20 }}>
+      <View style={{ width: tableWidth }}>
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: headerBg,
+            borderBottomWidth: 1,
+            borderBottomColor: divider,
+            paddingVertical: 8,
+            paddingHorizontal: horizontalPadding,
+            gap: GRID_GAP,
+          }}
+        >
+          <View style={{ width: RANK_W, alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 9, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+              #
+            </Text>
+          </View>
+          <View style={{ width: NAME_W }}>
+            <Text style={{ fontSize: 9, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              PLAYER
+            </Text>
+          </View>
+          {visibleColumns.map((col) => (
+            <View key={col.key} style={{ width: STAT_W, alignItems: 'center' }}>
+              <Text style={{ fontSize: 9, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                {col.label}
+              </Text>
+            </View>
+          ))}
+          <View style={{ width: PTS_W, alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 9, color: '#D86B3D', fontFamily: 'monospace', textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 }}>
+              PTS
+            </Text>
+          </View>
+        </View>
+
+        {/* Rows */}
+        {entries.map((entry, idx) => {
+          const isMe = entry.user_id === currentUserId;
+          const isLast = idx === entries.length - 1;
+          return (
+            <View
+              key={entry.user_id}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 10,
+                paddingHorizontal: horizontalPadding,
+                gap: GRID_GAP,
+                borderBottomWidth: isLast ? 0 : 1,
+                borderBottomColor: divider,
+                backgroundColor: isMe ? 'rgba(216,107,61,0.10)' : 'transparent',
+                borderRadius: isMe ? 10 : 0,
+              }}
+            >
+              <View style={{ width: RANK_W, alignItems: 'flex-end' }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: entry.position <= 3 ? '#D86B3D' : 'rgba(245,232,210,0.45)',
+                    fontWeight: entry.position <= 3 ? '700' : '400',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {entry.position}
+                </Text>
+              </View>
+
+              <View style={{ width: NAME_W }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontSize: 13,
+                    color: isMe ? '#F5E8D2' : 'rgba(245,232,210,0.9)',
+                    fontWeight: isMe ? '600' : '400',
+                  }}
+                >
+                  {entry.display_name}
+                </Text>
+              </View>
+
+              {visibleColumns.map((col) => (
+                <View key={col.key} style={{ width: STAT_W, alignItems: 'center' }}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: (entry.points_breakdown[col.key] ?? 0) > 0
+                        ? 'rgba(245,232,210,0.85)'
+                        : 'rgba(245,232,210,0.22)',
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {entry.points_breakdown[col.key] ?? 0}
+                  </Text>
+                </View>
+              ))}
+
+              <View style={{ width: PTS_W, alignItems: 'flex-end' }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: isMe ? '#DC7B4F' : '#D86B3D',
+                    fontWeight: '700',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {entry.total_points}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Legend */}
+      {legendItems.length > 0 && (
+        <View
+          style={{
+            marginTop: 16,
+            marginBottom: 8,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: 'rgba(245,232,210,0.04)',
+            borderWidth: 1,
+            borderColor: 'rgba(245,232,210,0.07)',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 6,
+          }}
+        >
+          {legendItems.map(({ label, legend }) => (
+            <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: label === 'PTS' ? '#D86B3D' : 'rgba(245,232,210,0.55)',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {label}
+              </Text>
+              <Text style={{ fontSize: 10, color: 'rgba(245,232,210,0.35)' }}>
+                {legend}
+              </Text>
+              <Text style={{ fontSize: 10, color: 'rgba(245,232,210,0.15)', marginLeft: 2 }}>
+                ·
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Tab content ──────────────────────────────────────────────────────────────
+
+function LeaderboardTab({ leagueId, currentUserId }: { leagueId: string; currentUserId: string | undefined }) {
+  const { data, isPending, isError, refetch } = useLeagueLeaderboard(leagueId);
+
+  if (isPending) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color="#D86B3D" />
+      </View>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        <Text tone="muted">Failed to load leaderboard.</Text>
+        <Pressable onPress={() => void refetch()} style={{ padding: 8 }}>
+          <Text tone="brand">Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (data.leaderboard.length === 0) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Text tone="muted">No entries yet.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 32 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <LeaderboardTable
+        entries={data.leaderboard}
+        currentUserId={currentUserId}
+      />
+    </ScrollView>
+  );
+}
+
+function PlaceholderTab({ label }: { label: string }) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Text tone="muted">{label} — coming soon</Text>
+    </View>
+  );
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function LeagueScreen() {
+  const { data: leagues } = useLeagues();
+  const { data: currentUser } = useCurrentUser();
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<LeagueTab>('leaderboard');
+
+  const [pendingDelete, setPendingDelete] = useState<LeagueItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [pendingLeave, setPendingLeave] = useState<LeagueMembership | null>(null);
+  const [pendingLeave, setPendingLeave] = useState<LeagueItem | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  const { data: leagues, isPending: leaguesPending } = useLeagues();
-  const { data: currentUser, isPending: userPending } = useCurrentUser();
   const { mutate: deleteLeague, isPending: deleting } = useDeleteLeague();
   const { mutate: leaveLeague, isPending: leaving } = useLeaveLeague();
 
-  const isLoading = leaguesPending || userPending;
+  const leagueList = useMemo<LeagueItem[]>(
+    () =>
+      (leagues ?? []).map((l) => ({
+        id: l.id,
+        name: l.name,
+        code: l.code,
+        isAdmin: l.owner_id === currentUser?.id,
+        members: l.member_count,
+      })),
+    [leagues, currentUser],
+  );
 
-  const memberships: LeagueMembership[] = useMemo(() => {
-    if (!leagues || !currentUser) return [];
-    return leagues.map((league) => ({
-      id: league.id,
-      name: league.name,
-      code: league.code,
-      members: league.member_count,
-      position: 0, // placeholder — update when leaderboard EP is available
-      change: 0,   // placeholder — update when leaderboard EP is available
-      isAdmin: league.owner_id === currentUser.id,
-    }));
-  }, [leagues, currentUser]);
+  // Auto-select first league when data loads
+  const resolvedLeagueId = selectedLeagueId || (leagueList[0]?.id ?? '');
 
   function handleConfirmDelete() {
     if (!pendingDelete) return;
@@ -320,47 +688,32 @@ export default function LeaguesScreen() {
       <StatusBar style="light" />
       <WarmTopGlow />
 
-      {/* Eyebrow */}
-      <View className="px-6 pt-9">
-        <Text variant="eyebrow">MY LEAGUES</Text>
+      {/* Header */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }}>
+        <Text variant="eyebrow" style={{ marginBottom: 8 }}>League</Text>
+        {leagueList.length > 0 ? (
+          <LeaguePicker
+            selectedId={resolvedLeagueId}
+            onSelect={setSelectedLeagueId}
+            leagues={leagueList}
+            onDeleteRequest={(l) => { setDeleteError(null); setPendingDelete(l); }}
+            onLeaveRequest={(l) => { setLeaveError(null); setPendingLeave(l); }}
+          />
+        ) : (
+          <Text tone="muted" style={{ fontSize: 14 }}>No leagues</Text>
+        )}
       </View>
 
-      {/* List */}
-      {isLoading ? null : memberships.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <ScrollView
-          className="flex-1 px-5 pt-7"
-          contentContainerClassName="gap-2.5 pb-3"
-          showsVerticalScrollIndicator={false}
-        >
-          {memberships.map((l) => (
-            <LeagueRow
-              key={l.id}
-              league={l}
-              onDeletePress={(league) => { setDeleteError(null); setPendingDelete(league); }}
-              onLeavePress={(league) => { setLeaveError(null); setPendingLeave(league); }}
-            />
-          ))}
-        </ScrollView>
-      )}
+      {/* Tabs */}
+      <SegmentedControl value={activeTab} onChange={setActiveTab} />
 
-      {/* CTAs */}
-      <View className="px-5 gap-3" style={{ paddingBottom: tabBarClearance }}>
-        <Button
-          label="Create new league"
-          variant="primary"
-          size="lg"
-          fullWidth
-          onPress={() => router.push('/(leagues)/create')}
-        />
-        <Button
-          label="Join with code"
-          variant="secondary"
-          size="lg"
-          fullWidth
-          onPress={() => router.push('/(leagues)/join')}
-        />
+      {/* Content */}
+      <View style={{ flex: 1, marginTop: 16 }}>
+        {activeTab === 'leaderboard' && resolvedLeagueId !== '' && (
+          <LeaderboardTab leagueId={resolvedLeagueId} currentUserId={currentUser?.id} />
+        )}
+        {activeTab === 'matches' && <PlaceholderTab label="Matches" />}
+        {activeTab === 'outrights' && <PlaceholderTab label="Outrights" />}
       </View>
 
       <ConfirmSheet
@@ -389,3 +742,4 @@ export default function LeaguesScreen() {
     </SafeAreaView>
   );
 }
+

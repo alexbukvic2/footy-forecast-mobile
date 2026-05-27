@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
-import { View, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Text, Button } from '@/components/ui';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useSession } from '@/auth/session';
+import { Button, Text } from '@/components/ui';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// ─── Brand atoms ──────────────────────────────────────────────────────────────
 
 function WarmTopGlow() {
   return (
@@ -19,13 +21,15 @@ function WarmTopGlow() {
   );
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const tabBarClearance = Math.max(insets.bottom, 12) + 64 + 12;
 
-  const { data: currentUser, isPending } = useCurrentUser();
+  // Profile state
+  const { data: currentUser, isPending: userPending } = useCurrentUser();
   const { signOut } = useSession();
-
   const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
@@ -34,6 +38,7 @@ export default function ProfileScreen() {
 
   const isDirty = displayName.trim() !== (currentUser?.display_name ?? '');
   const isValid = displayName.trim().length >= 1;
+
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top', 'left', 'right']}>
@@ -44,8 +49,13 @@ export default function ProfileScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <View className="flex-1 px-5 pt-3">
-          {/* Eyebrow */}
+        <ScrollView
+          className="flex-1 px-5 pt-3"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: tabBarClearance }}
+        >
+          {/* Profile section */}
           <View className="pt-9 pb-8">
             <Text variant="eyebrow">PROFILE</Text>
           </View>
@@ -69,7 +79,7 @@ export default function ProfileScreen() {
               returnKeyType="done"
               className="flex-1 text-ink text-[16px]"
               style={{ fontFamily: undefined }}
-              editable={!isPending}
+              editable={!userPending}
             />
             <Text className="font-mono text-[11px] text-ink-dim">
               {displayName.length}/64
@@ -96,19 +106,20 @@ export default function ProfileScreen() {
               }}
             />
           </View>
-        </View>
 
-        {/* Sign out — pinned to bottom */}
-        <View className="px-5" style={{ paddingBottom: tabBarClearance }}>
-          <Button
-            label="Sign out"
-            variant="ghost"
-            size="lg"
-            fullWidth
-            onPress={() => void signOut()}
-          />
-        </View>
+          {/* Sign out */}
+          <View className="mt-6">
+            <Button
+              label="Sign out"
+              variant="ghost"
+              size="lg"
+              fullWidth
+              onPress={() => void signOut()}
+            />
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
+
     </SafeAreaView>
   );
 }

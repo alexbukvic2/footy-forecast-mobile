@@ -1,6 +1,8 @@
 import type { components } from '@/types/api';
 import { apiFetch } from './client';
 
+type LeagueLeaderboardResponse = components['schemas']['LeagueLeaderboardResponse'];
+
 type League = components['schemas']['League'];
 type LeagueListItem = components['schemas']['LeagueListItem'];
 type LeagueDetail = components['schemas']['LeagueDetail'];
@@ -38,4 +40,8 @@ export async function deleteLeague(id: string): Promise<void> {
 
 export async function leaveLeague(leagueId: string, userId: string): Promise<void> {
   await apiFetch<void>(`/leagues/${leagueId}/members/${userId}`, { method: 'DELETE' });
+}
+
+export async function getLeagueLeaderboard(leagueId: string): Promise<LeagueLeaderboardResponse> {
+  return apiFetch<LeagueLeaderboardResponse>(`/leagues/${leagueId}/leaderboard`);
 }
