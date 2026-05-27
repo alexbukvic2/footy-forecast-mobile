@@ -14,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   Share,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -374,6 +375,8 @@ function LeaderboardTable({
   entries: LeaderboardEntry[];
   currentUserId: string | undefined;
 }) {
+  const { width: screenWidth } = useWindowDimensions();
+
   const visibleColumns = useMemo<ColumnDef[]>(() => {
     return BREAKDOWN_COLUMNS.filter((col) =>
       entries.some((e) => (e.points_breakdown[col.key] ?? 0) > 0),
@@ -385,129 +388,146 @@ function LeaderboardTable({
     return shown;
   }, [visibleColumns]);
 
-  const RANK_W  = 32;
-  const NAME_W  = 130;
-  const STAT_W  = 38;
+  const RANK_W = 20;
+  const STAT_W = 22;
+  const PTS_W = 34;
+  const GRID_GAP = 4;
   const headerBg = 'rgba(245,232,210,0.05)';
-  const divider  = 'rgba(245,232,210,0.07)';
+  const divider = 'rgba(245,232,210,0.07)';
+
+  const tableWidth = Math.max(280, screenWidth - 40);
+  const columnCount = 3 + visibleColumns.length; // rank + player + dynamic + pts
+  const horizontalPadding = 10;
+  const reservedWidth =
+    RANK_W +
+    PTS_W +
+    visibleColumns.length * STAT_W +
+    (columnCount - 1) * GRID_GAP +
+    horizontalPadding * 2;
+  const NAME_W = Math.max(68, tableWidth - reservedWidth);
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View>
-          {/* Header */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: headerBg,
-              borderBottomWidth: 1,
-              borderBottomColor: divider,
-              paddingVertical: 8,
-            }}
-          >
-            <View style={{ width: RANK_W, paddingLeft: 12 }}>
-              <Text style={{ fontSize: 10, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-                #
+    <View style={{ flex: 1, marginHorizontal: 20 }}>
+      <View style={{ width: tableWidth }}>
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: headerBg,
+            borderBottomWidth: 1,
+            borderBottomColor: divider,
+            paddingVertical: 8,
+            paddingHorizontal: horizontalPadding,
+            gap: GRID_GAP,
+          }}
+        >
+          <View style={{ width: RANK_W, alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 9, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+              #
+            </Text>
+          </View>
+          <View style={{ width: NAME_W }}>
+            <Text style={{ fontSize: 9, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              PLAYER
+            </Text>
+          </View>
+          {visibleColumns.map((col) => (
+            <View key={col.key} style={{ width: STAT_W, alignItems: 'center' }}>
+              <Text style={{ fontSize: 9, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                {col.label}
               </Text>
             </View>
-            <View style={{ width: NAME_W }}>
-              <Text style={{ fontSize: 10, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-                Player
-              </Text>
-            </View>
-            {visibleColumns.map((col) => (
-              <View key={col.key} style={{ width: STAT_W, alignItems: 'center' }}>
-                <Text style={{ fontSize: 10, color: 'rgba(245,232,210,0.4)', fontFamily: 'monospace', textTransform: 'uppercase' }}>
-                  {col.label}
+          ))}
+          <View style={{ width: PTS_W, alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 9, color: '#D86B3D', fontFamily: 'monospace', textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.8 }}>
+              PTS
+            </Text>
+          </View>
+        </View>
+
+        {/* Rows */}
+        {entries.map((entry, idx) => {
+          const isMe = entry.user_id === currentUserId;
+          const isLast = idx === entries.length - 1;
+          return (
+            <View
+              key={entry.user_id}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 10,
+                paddingHorizontal: horizontalPadding,
+                gap: GRID_GAP,
+                borderBottomWidth: isLast ? 0 : 1,
+                borderBottomColor: divider,
+                backgroundColor: isMe ? 'rgba(216,107,61,0.10)' : 'transparent',
+                borderRadius: isMe ? 10 : 0,
+              }}
+            >
+              <View style={{ width: RANK_W, alignItems: 'flex-end' }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: entry.position <= 3 ? '#D86B3D' : 'rgba(245,232,210,0.45)',
+                    fontWeight: entry.position <= 3 ? '700' : '400',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {entry.position}
                 </Text>
               </View>
-            ))}
-            <View style={{ width: STAT_W + 8, alignItems: 'center', paddingRight: 12 }}>
-              <Text style={{ fontSize: 10, color: '#D86B3D', fontFamily: 'monospace', textTransform: 'uppercase', fontWeight: '700' }}>
-                PTS
-              </Text>
-            </View>
-          </View>
 
-          {/* Rows */}
-          {entries.map((entry, idx) => {
-            const isMe = entry.user_id === currentUserId;
-            const isLast = idx === entries.length - 1;
-            return (
-              <View
-                key={entry.user_id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingVertical: 11,
-                  borderBottomWidth: isLast ? 0 : 1,
-                  borderBottomColor: divider,
-                  backgroundColor: isMe ? 'rgba(216,107,61,0.08)' : 'transparent',
-                }}
-              >
-                <View style={{ width: RANK_W, paddingLeft: 12 }}>
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      color: entry.position <= 3 ? '#D86B3D' : 'rgba(245,232,210,0.45)',
-                      fontWeight: entry.position <= 3 ? '700' : '400',
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {entry.position}
-                  </Text>
-                </View>
-                <View style={{ width: NAME_W }}>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontSize: 14,
-                      color: isMe ? '#F5E8D2' : 'rgba(245,232,210,0.85)',
-                      fontWeight: isMe ? '600' : '400',
-                    }}
-                  >
-                    {entry.display_name}
-                  </Text>
-                </View>
-                {visibleColumns.map((col) => (
-                  <View key={col.key} style={{ width: STAT_W, alignItems: 'center' }}>
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        color: (entry.points_breakdown[col.key] ?? 0) > 0
-                          ? 'rgba(245,232,210,0.85)'
-                          : 'rgba(245,232,210,0.22)',
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      {entry.points_breakdown[col.key] ?? 0}
-                    </Text>
-                  </View>
-                ))}
-                <View style={{ width: STAT_W + 8, alignItems: 'center', paddingRight: 12 }}>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: '#D86B3D',
-                      fontWeight: '700',
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {entry.total_points}
-                  </Text>
-                </View>
+              <View style={{ width: NAME_W }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontSize: 13,
+                    color: isMe ? '#F5E8D2' : 'rgba(245,232,210,0.9)',
+                    fontWeight: isMe ? '600' : '400',
+                  }}
+                >
+                  {entry.display_name}
+                </Text>
               </View>
-            );
-          })}
-        </View>
-      </ScrollView>
+
+              {visibleColumns.map((col) => (
+                <View key={col.key} style={{ width: STAT_W, alignItems: 'center' }}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: (entry.points_breakdown[col.key] ?? 0) > 0
+                        ? 'rgba(245,232,210,0.85)'
+                        : 'rgba(245,232,210,0.22)',
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {entry.points_breakdown[col.key] ?? 0}
+                  </Text>
+                </View>
+              ))}
+
+              <View style={{ width: PTS_W, alignItems: 'flex-end' }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: isMe ? '#DC7B4F' : '#D86B3D',
+                    fontWeight: '700',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {entry.total_points}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
 
       {/* Legend */}
       {legendItems.length > 0 && (
         <View
           style={{
-            marginHorizontal: 20,
             marginTop: 16,
             marginBottom: 8,
             padding: 12,
